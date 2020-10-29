@@ -205,17 +205,8 @@ bootloader() {
 add_user() {
     echo "Add user"
     useradd -mG wheel $USER
-    passwd $USER
     echo "${USER}:${PASSWD}" | chpasswd
     sed -i "s/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
-}
-
-# Yay
-install_yay() {
-    echo "Install yay"
-    git clone https://aur.archlinux.org/yay.git
-    cd yay
-    makepkg -si
 }
 
 # Video driver
