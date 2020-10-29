@@ -218,7 +218,7 @@ video_driver() {
 # Desktop
 install_desktop() {
     echo "Install desktop and display server"
-    pacman -Sy --noconfirm xorg gnome gnome-tweak
+    pacman -Sy --noconfirm xorg gnome gnome-tweaks
 }
 
 # Enable services
