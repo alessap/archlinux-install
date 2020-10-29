@@ -75,8 +75,8 @@ partition_disk() {
 # Encrypt main partition
 encrypt_main_partition() {
     echo "Encrypt main partition"
-    echo $PASSWD | cryptsetup luksFormat $MAIN_PARTITION -d -
-    echo $PASSWD | cryptsetup open $MAIN_PARTITION cryptlvm -d -
+    echo -n "${PASSWD}" | cryptsetup luksFormat $MAIN_PARTITION -
+    echo -n "${PASSWD}" | cryptsetup open $MAIN_PARTITION cryptlvm -
 }
 
 # Create physical and logical volumes
@@ -157,7 +157,7 @@ network_configuration() {
 # Set root password
 set_root_passwd() {
     echo "Set root password"
-    echo "root:${PASSWD}" | chpasswd
+    echo -n "root:${PASSWD}" | chpasswd
 }
 
 # Install packages
@@ -204,7 +204,7 @@ bootloader() {
 add_user() {
     echo "Add user"
     useradd -mG wheel $USER
-    echo "${USER}:${PASSWD}" | chpasswd
+    echo -n "${USER}:${PASSWD}" | chpasswd
     sed -i "s/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 }
 
