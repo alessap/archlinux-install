@@ -6,7 +6,7 @@ set -euxo pipefail
 timedatectl set-ntp true
 
 # Create mirrorlist
-pacman -Syy reflector
+pacman -Syy --noconfirm reflector
 reflector -c Denmark -a 6 --sort rate --save /etc/pacman.d/mirrorlist
 pacman -Syyy
 
@@ -97,7 +97,7 @@ setupchroot() {
     echo 'root:$PASSWD' | chpasswd
 
     # Install packages
-    pacman -S grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs
+    pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs
 
     # Initramfs
     # sed -i "s/"
