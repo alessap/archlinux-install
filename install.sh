@@ -161,30 +161,29 @@ install_packages() {
     pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs
 }
 
-    # Initramfs
-    # sed -i "s/"
-    # mkinitcpio -p linux
+# Initramfs
+# sed -i "s/"
+# mkinitcpio -p linux
 
-    # # Install bootloader
-    # grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+# # Install bootloader
+# grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 
-    # MAIN_PARTITION_UUID=$(blkid | grep $MAIN_PARTITION | awk '{print $2}')
-    # GRUB_CMD='cryptdevice=$MAIN_PARTITION_UUID:cryptlvm root=/dev/vg1/root'
-    # sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="$GRUB_CMD"'
-    # grub-mkconfig -o /boot/grub/grub.cfg
+# MAIN_PARTITION_UUID=$(blkid | grep $MAIN_PARTITION | awk '{print $2}')
+# GRUB_CMD='cryptdevice=$MAIN_PARTITION_UUID:cryptlvm root=/dev/vg1/root'
+# sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="$GRUB_CMD"'
+# grub-mkconfig -o /boot/grub/grub.cfg
 
-    # # Enable services
-    # systemctl enable NetworkManager
-    # systemctl enable bluetooth
-    # systemctl enable org.cups.cupsd
+# # Enable services
+# systemctl enable NetworkManager
+# systemctl enable bluetooth
+# systemctl enable org.cups.cupsd
 
-    # # Add user
-    # useradd -mG wheel wcarlsen
-    # passwd wcarlsen
-    # sed -i "s/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
+# # Add user
+# useradd -mG wheel wcarlsen
+# passwd wcarlsen
+# sed -i "s/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
-    # exit
-}
+# exit
 
 if [[ $1 == setupchroot]]
 then
