@@ -174,8 +174,6 @@ initramfs() {
     MOD_HOOKS=""
     for i in $HOOKS
     do
-        echo "$i"
-        echo ""
         if [[ "$i" == "autodetect" ]]; then
             HOOK="$i keymap"
         elif [[ "$i" == "filesystems" ]]; then
@@ -196,7 +194,7 @@ initramfs() {
 bootloader() {
     echo "Install bootloader"
     grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
-    MAIN_PARTITION_UUID=$(blkid | grep "$MAIN_PARTITION" | awk '{print $2}')
+    MAIN_PARTITION_UUID=$(blkid | grep $MAIN_PARTITION | awk '{print $2}')
     GRUB_CMD="cryptdevice=${MAIN_PARTITION_UUID}:cryptlvm root=\/dev\/vg1\/root"
     sed -i "s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"${GRUB_CMD}\"/g" /etc/default/grub
     grub-mkconfig -o /boot/grub/grub.cfg
