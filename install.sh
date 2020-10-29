@@ -11,12 +11,7 @@ reflector -c Denmark -a 6 --sort rate --save /etc/pacman.d/mirrorlist
 pacman -Syyy
 
 # Zap disk
-# gdisk $DISK << GDISK_CMDS
-# x
-# z
-# Y
-# Y
-# GDISK_CMDS
+sgdisk --zap-all
 
 # Parition disk
 gdisk $DISK << GDISK_CMDS
