@@ -48,20 +48,8 @@ zap_disk() {
 # Parition disk
 partition_disk() {
     echo 'Partion disk $DISK'
-    gdisk $DISK << GDISK_CMDS
-n
-1
-
-+260M
-ef00
-n
-2
-
-
-8e00
-w
-Y
-GDISK_CMDS
+    sgdisk -n 0:0:+260M -t 0:ef00 $DISK
+    sgdisk -n 0:0:0 -t 0:8e00 $DISK
 
     UEFI_PARTITION=$(fdisk -l $DISK | grep 'EFI' | awk '{print $1}')
     MAIN_PARTITION=$(fdisk -l $DISK | grep 'LVM' | awk '{print $1}')
@@ -185,7 +173,7 @@ install_packages() {
 
 # exit
 
-if [[ $1 == setupchroot]]
+if [[ $1 == setupchroot ]]
 then
     chrootsetup
 else
