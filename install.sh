@@ -1,6 +1,15 @@
 #!/bin/bash
 
-set -euxo pipefail
+set -exo pipefail
+
+# Configuration
+DISK="/dev/nvme0n1"
+COUNTRY="Denmark"
+KEYMAP="dk"
+HOST_NAME="archlinux"
+PASSWD="So Much Secret"
+USER="wcarlsen"
+TIMEZONE="Europe/Copenhagen"
 
 # Main setup
 setup() {
@@ -23,31 +32,39 @@ chrootsetup() {
     network_configuration
     set_root_passwd
     install_packages
+    initramfs
+    bootloader
+    add_user
+    install_yay
+    video_driver
+    install_desktop
+    enable_services
+    exit 0
 }
 
 # Update system clock
 system_clock() {
-    echo 'Update system clock'
+    echo "Update system clock"
     timedatectl set-ntp true
 }
 
 # Create mirrorlist
 create_mirrorlist() {
-    echo 'Creating mirrorlist'
+    echo "Creating mirrorlist"
     pacman -Syy --noconfirm reflector
-    reflector -c Denmark -a 6 --sort rate --save /etc/pacman.d/mirrorlist
+    reflector -c $COUNTRY -a 6 --sort rate --save /etc/pacman.d/mirrorlist
     pacman -Syyy
 }
 
 # Zap disk
 zap_disk() {
-    echo 'Zapping disk ${DISK}'
+    echo "Zapping disk ${DISK}"
     sgdisk --zap-all $DISK
 }
 
 # Parition disk
 partition_disk() {
-    echo 'Partion disk ${DISK}'
+    echo "Partion disk ${DISK}"
     sgdisk -n 0:0:+260M -t 0:ef00 $DISK
     sgdisk -n 0:0:0 -t 0:8e00 $DISK
 
@@ -58,14 +75,14 @@ partition_disk() {
 
 # Encrypt main partition
 encrypt_main_partition() {
-    echo 'Encrypt main partition'
+    echo "Encrypt main partition"
     echo $PASSWD | cryptsetup luksFormat $MAIN_PARTITION -d -
     echo $PASSWD | cryptsetup open $MAIN_PARTITION cryptlvm -d -
 }
 
 # Create physical and logical volumes
 create_volumes() {
-    echo 'Create volumes'
+    echo "Create volumes"
     pvcreate /dev/mapper/cryptlvm
     vgcreate vg1 /dev/mapper/cryptlvm
     lvcreate -L 40G vg1 -n root
@@ -75,7 +92,7 @@ create_volumes() {
 
 # Format partitions
 format_partitions() {
-    echo 'Format partitions'
+    echo "Format partitions"
     mkfs.fat -F32 $UEFI_PARTITION
     mkfs.ext4 /dev/vg1/root
     mkfs.ext4 /dev/vg1/home
@@ -84,7 +101,7 @@ format_partitions() {
 
 # Mount file system
 mount_file_system() {
-    echo 'Mount file system'
+    echo "Mount file system"
     mount /dev/vg1/root /mnt
     mkdir /mnt/home
     mount /dev/vg1/home /mnt/home
@@ -95,7 +112,7 @@ mount_file_system() {
 
 # Install base
 install_base() {
-    echo 'Install base'
+    echo "Install base"
     # Pacstrap
     pacstrap /mnt base linux linux-firmware neovim intel-ucode lvm2
 
@@ -105,7 +122,7 @@ install_base() {
 
 # Configure system
 chroot() {
-    echo 'Configure system'
+    echo "Configure system"
     cp install.sh /mnt/root/install.sh
     chmod + /mnt/root/install.sh
     arch-chroot /mnt /root/install.sh setupchroot
@@ -113,65 +130,116 @@ chroot() {
 
 # Timezone
 timezone() {
-    echo 'Timezone'
-    ln -sf /usr/share/zoneinfo/Europe/Copenhagen /etc/localtime
+    echo "Timezone"
+    ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
     hwclock --systohc
 }
 
 # Localization
 localization() {
-    echo 'Localization'
-    echo 'en_US.UTF-8 UTF-8' /etc/locale.gen # en_US.UTF-8 UTF-8
+    echo "Localization"
+    echo "" >> /etc/locale.gen
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
     locale-gen
-    echo LANG=en_US.UTF-8 >> /etc/locale.conf
-    echo KEYMAP=dk >> /etc/vconsole.conf
+    echo "LANG=en_US.UTF-8" >> /etc/locale.conf
+    echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 }
-
 
 # Network configuration
 network_configuration() {
-    echo 'Network configuration'
-    echo $HOSTNAME >> /etc/hostname
-    echo '127.0.0.1     localhost' > /etc/hosts
-    echo '::1           localhost' > /etc/hosts
-    echo '127.0.1.1     $HOSTNAME.localdomain   $HOSTNAME' > /etc/hosts
+    echo "Network configuration"
+    echo "$HOST_NAME" > /etc/hostname
+    echo "" >> /etc/hosts
+    echo "127.0.0.1     localhost" >> /etc/hosts
+    echo "::1           localhost" >> /etc/hosts
+    echo "127.0.1.1     ${HOST_NAME}.localdomain   ${HOST_NAME}" >> /etc/hosts
 }
 
 # Set root password
 set_root_passwd() {
-    echo 'Set root password'
-    echo 'root:$PASSWD' | chpasswd
+    echo "Set root password"
+    echo "root:${PASSWD}" | chpasswd
 }
 
 # Install packages
 install_packages() {
-    echo 'Install packages'
+    echo "Install packages"
     pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs
 }
 
 # Initramfs
-# sed -i "s/"
-# mkinitcpio -p linux
+initramfs() {
+    echo "Initramfs"
+    HOOKS=$(cat /etc/mkinitcpio.conf | grep "^HOOKS=(")
+    MOD_HOOKS=""
+    for i in $HOOKS
+    do
+        echo "$i"
+        echo ""
+        if [[ "$i" == "autodetect" ]]; then
+            HOOK="$i keymap"
+        elif [[ "$i" == "filesystem" ]]; then
+            HOOK="encrypt lvm2 $i"
+        else
+            HOOK="$i"
+        fi
+        MOD_HOOKS="${MOD_HOOKS} ${HOOK}"
+    done
+    MOD_HOOKS=${MOD_HOOKS:1}
 
-# # Install bootloader
-# grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+    sed -i "s/^HOOKS=(.*/${MOD_HOOKS}/g" /etc/mkinitcpio.conf
 
-# MAIN_PARTITION_UUID=$(blkid | grep $MAIN_PARTITION | awk '{print $2}')
-# GRUB_CMD='cryptdevice=$MAIN_PARTITION_UUID:cryptlvm root=/dev/vg1/root'
-# sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="$GRUB_CMD"'
-# grub-mkconfig -o /boot/grub/grub.cfg
+    mkinitcpio -p linux
+}
 
-# # Enable services
-# systemctl enable NetworkManager
-# systemctl enable bluetooth
-# systemctl enable org.cups.cupsd
+# Install bootloader
+bootloader() {
+    echo "Install bootloader"
+    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+    MAIN_PARTITION_UUID=$(blkid | grep $MAIN_PARTITION | awk '{print $2}')
+    GRUB_CMD="cryptdevice=${MAIN_PARTITION_UUID}:cryptlvm root=\/dev\/vg1\/root"
+    sed -i "s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"${GRUB_CMD}\"/g" /etc/default/grub
+    grub-mkconfig -o /boot/grub/grub.cfg
+}
 
-# # Add user
-# useradd -mG wheel wcarlsen
-# passwd wcarlsen
-# sed -i "s/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
+# Add user
+add_user() {
+    echo "Add user"
+    useradd -mG wheel $USER
+    passwd $USER
+    echo "${USER}:${PASSWD}" | chpasswd
+    sed -i "s/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
+}
 
-# exit
+# Yay
+install_yay() {
+    echo "Install yay"
+    git clone https://aur.archlinux.org/yay.git
+    cd yay
+    makepkg -si
+}
+
+# Video driver
+video_driver() {
+    echo "Install video driver"
+    pacman -Sy --noconfirm xf86-video-intel
+    # pacman -Sy --noconfirm nvidia nvidia-utils nvidia-settings
+}
+
+# Desktop
+install_desktop() {
+    echo "Install desktop and display server"
+    pacman -Sy --noconfirm xorg gnome gnome-tweak
+}
+
+# Enable services
+enable_services() {
+    echo "Enable services"
+    systemctl enable NetworkManager
+    systemctl enable bluetooth
+    systemctl enable org.cups.cupsd
+    systemctl enable gdm
+}
 
 if [[ $1 == setupchroot ]]
 then
