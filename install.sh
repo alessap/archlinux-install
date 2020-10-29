@@ -35,7 +35,6 @@ chrootsetup() {
     initramfs
     bootloader
     add_user
-    install_yay
     video_driver
     install_desktop
     enable_services
