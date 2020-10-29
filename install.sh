@@ -41,13 +41,13 @@ create_mirrorlist() {
 
 # Zap disk
 zap_disk() {
-    echo 'Zapping disk $DISK'
-    sgdisk --zap-all
+    echo 'Zapping disk ${DISK}'
+    sgdisk --zap-all $DISK
 }
 
 # Parition disk
 partition_disk() {
-    echo 'Partion disk $DISK'
+    echo 'Partion disk ${DISK}'
     sgdisk -n 0:0:+260M -t 0:ef00 $DISK
     sgdisk -n 0:0:0 -t 0:8e00 $DISK
 
