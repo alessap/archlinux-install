@@ -36,7 +36,6 @@ chrootsetup() {
     bootloader
     add_user
     video_driver
-    install_yay
     install_desktop
     enable_services
     exit 0
@@ -218,19 +217,18 @@ video_driver() {
     fi
 }
 
-# Yay
-install_yay() {
-    echo 'Install yay'
-    su -u wcarlsen -c 'git clone https://aur.archlinux.org/yay.git /home/${USER}/yay'
-    pushd /home/$USER/yay
-    echo '$PASSWD' | sudo -S -u wcarlsen makepkg -si --noconfirm
-    popd
-}
-
 # Desktop
 install_desktop() {
     echo "Install desktop and display server"
-    pacman -Sy --noconfirm xorg gnome gnome-tweaks
+    if [[ $DESKTOP == "gnome"]]; then
+        pacman -Sy --noconfirm xorg gnome gnome-tweaks
+        systemctl enable gdm
+    elif [[ $DESKTOP == "kde" ]]; then
+        pacman -Sy --noconfirm plasma kde-applications
+        systemctl enable ssdm
+    else
+        echo 'No valid desktop specified'
+    fi
 }
 
 # Enable services
@@ -239,7 +237,6 @@ enable_services() {
     systemctl enable NetworkManager
     systemctl enable bluetooth
     systemctl enable org.cups.cupsd
-    systemctl enable gdm
 }
 
 if [[ $1 == setupchroot ]]; then
