@@ -10,6 +10,7 @@ HOST_NAME="archlinux"
 PASSWD="So Much Secret"
 USER="wcarlsen"
 TIMEZONE="Europe/Copenhagen"
+DESKTOP="kde"
 
 # Main setup
 setup() {
