@@ -221,9 +221,9 @@ video_driver() {
 # Yay
 install_yay() {
     echo 'Install yay'
-    su $USER -c "git clone https://aur.archlinux.org/yay.git /home/${USER}/yay"
+    git clone https://aur.archlinux.org/yay.git /home/${USER}/yay
     pushd /home/$USER/yay
-    su $USER -c "makepkg -si"
+    echo '$PASSWD' | sudo -S -u wcarlsen makepkg -si --noconfirm
     popd
 }
 
