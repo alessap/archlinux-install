@@ -36,6 +36,7 @@ chrootsetup() {
     bootloader
     add_user
     video_driver
+    install_yay
     install_desktop
     enable_services
     exit 0
@@ -212,7 +213,18 @@ add_user() {
 video_driver() {
     echo "Install video driver"
     pacman -Sy --noconfirm xf86-video-intel
-    # pacman -Sy --noconfirm nvidia nvidia-utils nvidia-settings
+    if lspci | grep -q 'NVIDIA'; then
+        pacman -Sy --noconfirm nvidia nvidia-utils nvidia-settings
+    fi
+}
+
+# Yay
+install_yay() {
+    echo 'Install yay'
+    su $USER -c "git clone https://aur.archlinux.org/yay.git /home/${USER}/yay"
+    pushd /home/$USER/yay
+    su $USER -c "makepkg -si"
+    popd
 }
 
 # Desktop
@@ -230,8 +242,7 @@ enable_services() {
     systemctl enable gdm
 }
 
-if [[ $1 == setupchroot ]]
-then
+if [[ $1 == setupchroot ]]; then
     chrootsetup
 else
     setup
