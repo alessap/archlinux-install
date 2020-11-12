@@ -10,7 +10,7 @@ HOST_NAME="archlinux"
 PASSWD="So Much Secret"
 USER="wcarlsen"
 TIMEZONE="Europe/Copenhagen"
-DESKTOP="kde"
+DESKTOP="gnome"
 
 # Main setup
 setup() {
@@ -221,12 +221,12 @@ video_driver() {
 # Desktop
 install_desktop() {
     echo "Install desktop and display server"
-    if [[ $DESKTOP == "gnome"]]; then
+    if [[ $DESKTOP == "gnome" ]]; then
         pacman -Sy --noconfirm xorg gnome gnome-tweaks
         systemctl enable gdm
     elif [[ $DESKTOP == "kde" ]]; then
-        pacman -Sy --noconfirm plasma kde-applications
-        systemctl enable ssdm
+        pacman -Sy --noconfirm plasma kde-applications sddm
+        systemctl enable sddm
     else
         echo 'No valid desktop specified'
     fi
