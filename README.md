@@ -25,7 +25,7 @@ loadkeys dk
 ping https://wwww.archlinux.org/
 
 # Find name of disk to install Archlinux on
-lsbllk
+lsblk
 
 # Fetch install script
 curl -o install.sh https://raw.githubusercontent.com/wcarlsen/archlinux-install/main/install.sh
