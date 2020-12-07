@@ -1,5 +1,7 @@
 # Archlinux installer script
 
+Forked from wcarlsen/archlinux-install
+
 This install installer script will install [Archlinux](https://www.archlinux.org/) as I prefer it. Input options included in the script:
 
 | Input | Description |
@@ -15,6 +17,20 @@ This install installer script will install [Archlinux](https://www.archlinux.org
 
 
 ## Get started
+
+Download Arch Linux iso from https://www.archlinux.org/download/
+
+Create a new `msdos` partition on your USB drive (e.g. using gparted)
+
+Create a FAT32 primary partition
+
+The next command might be very dangerous: double check the disk name before executing (e.g. sudo fdisk -l). 
+Open a terminal and run (do not use /dev/sdXn but /dev/sdX):
+```bash
+sudo dd bs=4M if=path/to/archlinux/iso of=/dev/sdX && sync  
+```
+Now the drive is ready for installing Arch on your computer.
+
 Load the install media. And follow these steps
 
 ```bash
@@ -28,7 +44,7 @@ ping https://wwww.archlinux.org/
 lsblk
 
 # Fetch install script
-curl -o install.sh https://raw.githubusercontent.com/wcarlsen/archlinux-install/main/install.sh
+curl -o install.sh https://raw.githubusercontent.com/alessap/archlinux-install/main/install.sh
 
 # Change input variables to your liking
 vim install.sh
