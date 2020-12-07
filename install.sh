@@ -7,8 +7,8 @@ DISK="/dev/nvme0n1"
 COUNTRY="Denmark"
 KEYMAP="dk"
 HOST_NAME="archlinux"
-PASSWD="So Much Secret"
-USER="wcarlsen"
+PASSWD="A Very Secret Passowrd"
+USER="alessap"
 TIMEZONE="Europe/Copenhagen"
 DESKTOP="gnome"
 
@@ -86,7 +86,7 @@ create_volumes() {
     pvcreate /dev/mapper/cryptlvm
     vgcreate vg1 /dev/mapper/cryptlvm
     lvcreate -L 40G vg1 -n root
-    lvcreate -L 2G vg1 -n swap
+    lvcreate -L 8G vg1 -n swap
     lvcreate -l 100%FREE vg1 -n home
 }
 
@@ -164,7 +164,7 @@ set_root_passwd() {
 # Install packages
 install_packages() {
     echo "Install packages"
-    pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs
+    pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs vim
 }
 
 # Initramfs
