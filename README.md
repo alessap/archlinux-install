@@ -45,6 +45,8 @@ iw dev wlan0 scan
  
 iw dev wlan0 connect your_essid key 0:your_key
 wpa_passphrase MYSSID passphrase > /etc/wpa_supplicant/example.conf
+wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/example.conf
+dhcpcd interface
 
 # Check internet connection
 ping https://wwww.archlinux.org/
