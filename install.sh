@@ -51,7 +51,7 @@ system_clock() {
 # Create mirrorlist
 create_mirrorlist() {
     echo "Creating mirrorlist"
-    pacman -Syy --noconfirm reflector
+    pacman -Syy --noconfirm python3 reflector
     reflector -c $COUNTRY -a 6 --sort rate --save /etc/pacman.d/mirrorlist
     pacman -Syyy
 }
