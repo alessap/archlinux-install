@@ -37,6 +37,15 @@ Load the install media. And follow these steps
 # Load keymap
 loadkeys dk
 
+iw dev
+
+ip link set wlan0 up
+
+iw dev wlan0 scan
+ 
+iw dev wlan0 connect your_essid key 0:your_key
+wpa_passphrase MYSSID passphrase > /etc/wpa_supplicant/example.conf
+
 # Check internet connection
 ping https://wwww.archlinux.org/
 
