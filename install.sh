@@ -1,12 +1,14 @@
 #!/bin/bash
 
+# tested on ThinkPad X260
+
 set -exo pipefail
 
 # Configuration
-DISK="/dev/nvme0n1"
+DISK="/dev/sda"
 COUNTRY="Denmark"
-KEYMAP="dk"
-HOST_NAME="archlinux"
+KEYMAP="dk-latin1"
+HOST_NAME="archlinux-x260"
 PASSWD="A Very Secret Password"
 USER="alessap"
 TIMEZONE="Europe/Copenhagen"
@@ -141,7 +143,7 @@ localization() {
     echo "" >> /etc/locale.gen
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
     locale-gen
-    echo "LANG=en_US.UTF-8" >> /etc/locale.conf
+    echo "LANG=en_DK.UTF-8" >> /etc/locale.conf
     echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 }
 
@@ -164,7 +166,7 @@ set_root_passwd() {
 # Install packages
 install_packages() {
     echo "Install packages"
-    pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs vim
+    pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs
 }
 
 # Initramfs
@@ -237,7 +239,7 @@ enable_services() {
     echo "Enable services"
     systemctl enable NetworkManager
     systemctl enable bluetooth
-    systemctl enable org.cups.cupsd
+    systemctl enable cups.service
 }
 
 if [[ $1 == setupchroot ]]; then
