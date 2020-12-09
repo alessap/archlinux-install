@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# tested on ThinkPad X260
+# tested on a ThinkPad X260
 
 set -exo pipefail
 
@@ -143,7 +143,7 @@ localization() {
     echo "" >> /etc/locale.gen
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
     locale-gen
-    echo "LANG=en_DK.UTF-8" >> /etc/locale.conf
+    echo "LANG=en_US.UTF-8" >> /etc/locale.conf
     echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 }
 
@@ -166,7 +166,7 @@ set_root_passwd() {
 # Install packages
 install_packages() {
     echo "Install packages"
-    pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs
+    pacman -Sy --noconfirm vim grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pulseaudio-bluetooth cups xdg-utils xdg-user-dirs
 }
 
 # Initramfs
