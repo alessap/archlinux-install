@@ -141,9 +141,9 @@ timezone() {
 localization() {
     echo "Localization"
     echo "" >> /etc/locale.gen
-    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+    echo "en_DK.UTF-8 UTF-8" >> /etc/locale.gen
     locale-gen
-    echo "LANG=en_US.UTF-8" >> /etc/locale.conf
+    echo "LANG=en_DK.UTF-8" >> /etc/locale.conf
     echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 }
 
