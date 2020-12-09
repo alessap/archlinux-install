@@ -35,7 +35,7 @@ Load the install media. And follow these steps
 
 ```bash
 # Load keymap
-loadkeys dk
+loadkeys dk-latin1
 
 iw dev
 
