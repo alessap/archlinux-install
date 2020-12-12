@@ -40,7 +40,6 @@ chrootsetup() {
     add_user
     video_driver
     install_desktop
-#    install_aur_packages  # WIP
     enable_services
     exit 0
 }
@@ -146,7 +145,6 @@ localization() {
     locale-gen
     echo "LANG=en_DK.UTF-8" >> /etc/locale.conf
     echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
-    setxkbmap dk 
 }
 
 # Network configuration
