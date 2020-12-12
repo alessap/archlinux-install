@@ -1,4 +1,4 @@
-# Archlinux installer script
+# Archlinux installer script - base system and more
 
 Forked from wcarlsen/archlinux-install
 
