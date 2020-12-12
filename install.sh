@@ -13,6 +13,7 @@ PASSWD="A Very Secret Password"
 USER="alessap"
 TIMEZONE="Europe/Copenhagen"
 DESKTOP="gnome"
+GRUB_TIMEOUT="0"  # set to 0 to skip grub menu in case there is no dual boot
 
 # Main setup
 setup() {
@@ -201,6 +202,7 @@ bootloader() {
     SWAP_PARTITION_UUID=$(blkid | grep swap | awk '{print $2}')
     GRUB_CMD="cryptdevice=${MAIN_PARTITION_UUID}:cryptlvm root=\/dev\/vg1\/root resume=${SWAP_PARTITION_UUID}"
     sed -i "s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"${GRUB_CMD}\"/g" /etc/default/grub
+    sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/g" /etc/defaut/grub
     grub-mkconfig -o /boot/grub/grub.cfg
 }
 
