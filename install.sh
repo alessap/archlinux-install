@@ -199,8 +199,7 @@ bootloader() {
     grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
     MAIN_PARTITION=$(fdisk -l $DISK | grep 'LVM' | awk '{print $1}')
     MAIN_PARTITION_UUID=$(blkid | grep $MAIN_PARTITION | awk '{print $2}')
-    SWAP_PARTITION_UUID=$(blkid | grep swap | awk '{print $2}')
-    GRUB_CMD="cryptdevice=${MAIN_PARTITION_UUID}:cryptlvm root=\/dev\/vg1\/root resume=${SWAP_PARTITION_UUID}"
+    GRUB_CMD="cryptdevice=${MAIN_PARTITION_UUID}:cryptlvm root=\/dev\/vg1\/root resume=\/dev\/mapper\/vg1-swap"
     sed -i "s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"${GRUB_CMD}\"/g" /etc/default/grub
     sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/g" /etc/defaut/grub
     grub-mkconfig -o /boot/grub/grub.cfg
