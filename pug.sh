@@ -37,3 +37,9 @@ wget -q -O aur-list.pkg https://gist.githubusercontent.com/alessap/bb661806b5bd3
 xargs <aur-list.pkg pacaur -S --needed --noedit 
 rm aur-list.pkg
 
+cd
+[[ .ssh/id_rsa ]] && ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ""
+
+git clone git@github.com:alessap/dotfiles.git
+cd dotfiles
+bash create_links.sh
