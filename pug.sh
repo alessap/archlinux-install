@@ -43,3 +43,30 @@ cd
 git clone git@github.com:alessap/dotfiles.git
 cd dotfiles
 bash create_links.sh
+
+# Install powerline-shell
+mkdir -p ~/.software
+cd ~/.software
+git clone https://github.com/b-ryan/powerline-shell
+cd powerline-shell
+sudo python setup.py install
+cd ../..
+
+# Install powerline fonts
+mkdir -p ~/.software
+cd ~/.software
+# clone
+git clone https://github.com/powerline/fonts.git --depth=1
+# install
+cd fonts
+./install.sh
+# clean-up a bit
+cd ..
+rm -rf fonts
+
+# Install fingerprint reader 
+
+# Cheese not working on gnome - camera
+sudo usermod -a -G video alessap
+systemctl --global disable pipewire.socket
+# and reeboot
