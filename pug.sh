@@ -65,6 +65,7 @@ cd ..
 rm -rf fonts
 
 # Install fingerprint reader 
+sudo pacman -S fprintd imagemagick
 
 # Cheese not working on gnome - camera
 sudo usermod -a -G video alessap
