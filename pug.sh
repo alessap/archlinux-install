@@ -73,3 +73,8 @@ sudo pacman -S fprintd imagemagick
 sudo usermod -a -G video alessap
 systemctl --global disable pipewire.socket
 # and reeboot
+
+# set grub timeout
+GRUB_TIMEOUT="0"  # set to 0 to skip grub menu in case there is no dual boot
+sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/g" /etc/defaut/grub
+grub-mkconfig -o /boot/grub/grub.cfg
