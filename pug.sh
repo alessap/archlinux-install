@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# tested on a ThinkPad X260
+
 set -exo pipefail
 
 # Install pacaur
