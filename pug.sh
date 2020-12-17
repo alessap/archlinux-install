@@ -74,14 +74,14 @@ cd ..
 rm -rf fonts
 
 # Install fingerprint reader 
-sudo pacman -S fprintd imagemagick
+sudo pacman -S --noconfirm --needed fprintd imagemagick
 
 # Cheese not working on gnome - camera
 sudo usermod -a -G video alessap
-systemctl --global disable pipewire.socket
+sudo systemctl --global disable pipewire.socket
 # and reeboot
 
 # set grub timeout
 GRUB_TIMEOUT="0"  # set to 0 to skip grub menu in case there is no dual boot
-sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/g" /etc/defaut/grub
-grub-mkconfig -o /boot/grub/grub.cfg
+sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/g" /etc/default/grub
+sudo grub-mkconfig -o /boot/grub/grub.cfg
