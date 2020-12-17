@@ -45,6 +45,9 @@ rm aur-list.pkg
 
 cd
 [[ .ssh/id_rsa ]] && ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ""
+cat ~/.ssh/id_rsa.pub
+read -p "Add SSH key on your github page and press [Yy] to continue: " -n 1 -r
+
 
 git clone git@github.com:alessap/dotfiles.git
 cd dotfiles
