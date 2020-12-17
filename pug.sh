@@ -34,11 +34,11 @@ install_pacaur() {
 
 sudo pacman -S --noconfirm --needed wget
 
-wget -q -O pacman-list.pkg https://gist.githubusercontent.com/alessap/d006fbae581c07077a3fa8185802ff01/raw/067e745c1cd53b763ac0a917c5a695ed1212849c/pacman-list.pkg
+wget -q -O pacman-list.pkg https://gist.githubusercontent.com/alessap/d006fbae581c07077a3fa8185802ff01/raw/d1f969a3d1860fbfe0a8a547e3630bd022574305/pacman-list.pkg
 sudo pacman -S --needed - < pacman-list.pkg
 rm pacman-list.pkg
 
-wget -q -O aur-list.pkg https://gist.githubusercontent.com/alessap/bb661806b5bd3f4554eb60df5308aa33/raw/13d4ba2df8656c1e1b52f03e0eba10b8d0b2cc41/aur-list.pkg
+wget -q -O aur-list.pkg https://gist.githubusercontent.com/alessap/bb661806b5bd3f4554eb60df5308aa33/raw/719a3869a5e79d670d278f4945fd721fe60382e4/aur-list.pkg
 sed '/pug/d' aur-list.pkg > aur-list-no-pug.pkg 
 xargs <aur-list-no-pug.pkg pacaur -S --needed --noedit 
 rm aur-list*pkg
