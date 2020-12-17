@@ -12,7 +12,7 @@ install_pacaur() {
     echo "Install pacaur"
     if ! item="$(type -p "pacaur")" || [[ -z $item ]]; then
         echo "pacaur is not installed"
-        sudo pacman -S --noconfim --needed base-devel git
+        sudo pacman -S --noconfirm --needed base-devel git
         
         mkdir -p ~/.software
         cd ~/.software
@@ -41,13 +41,12 @@ rm pacman-list.pkg
 wget -q -O aur-list.pkg https://gist.githubusercontent.com/alessap/bb661806b5bd3f4554eb60df5308aa33/raw/13d4ba2df8656c1e1b52f03e0eba10b8d0b2cc41/aur-list.pkg
 sed '/pug/d' aur-list.pkg > aur-list-no-pug.pkg 
 xargs <aur-list-no-pug.pkg pacaur -S --needed --noedit 
-rm aur-list.pkg
+rm aur-list*pkg
 
 cd
 [[ .ssh/id_rsa ]] && ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ""
 cat ~/.ssh/id_rsa.pub
 read -p "Add SSH key on your github page and press [Yy] to continue: " -n 1 -r
-
 
 git clone git@github.com:alessap/dotfiles.git
 cd dotfiles
@@ -83,5 +82,7 @@ sudo systemctl --global disable pipewire.socket
 
 # set grub timeout
 GRUB_TIMEOUT="0"  # set to 0 to skip grub menu in case there is no dual boot
-sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/g" /etc/default/grub
+sudo sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/g" /etc/default/grub
 sudo grub-mkconfig -o /boot/grub/grub.cfg
+
+pacaur -S pug
