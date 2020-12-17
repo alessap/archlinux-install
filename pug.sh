@@ -35,16 +35,16 @@ install_pacaur() {
 sudo pacman -S --noconfirm --needed wget
 
 wget -q -O pacman-list.pkg https://gist.githubusercontent.com/alessap/d006fbae581c07077a3fa8185802ff01/raw/d1f969a3d1860fbfe0a8a547e3630bd022574305/pacman-list.pkg
-sudo pacman -S --needed - < pacman-list.pkg
+sudo pacman -S --noconfirm --needed - < pacman-list.pkg
 rm pacman-list.pkg
 
 wget -q -O aur-list.pkg https://gist.githubusercontent.com/alessap/bb661806b5bd3f4554eb60df5308aa33/raw/719a3869a5e79d670d278f4945fd721fe60382e4/aur-list.pkg
 sed '/pug/d' aur-list.pkg > aur-list-no-pug.pkg 
-xargs <aur-list-no-pug.pkg pacaur -S --needed --noedit 
+xargs <aur-list-no-pug.pkg pacaur -S --noconfirm --needed --noedit 
 rm aur-list*pkg
 
 cd
-[[ .ssh/id_rsa ]] && ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ""
+[[ ! -n ~/.ssh/id_rsa ]] && ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ""
 cat ~/.ssh/id_rsa.pub
 read -p "Add SSH key on your github page and press [Yy] to continue: " -n 1 -r
 
