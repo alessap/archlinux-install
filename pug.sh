@@ -36,7 +36,8 @@ sudo pacman -S --needed - < pacman-list.pkg
 rm pacman-list.pkg
 
 wget -q -O aur-list.pkg https://gist.githubusercontent.com/alessap/bb661806b5bd3f4554eb60df5308aa33/raw/13d4ba2df8656c1e1b52f03e0eba10b8d0b2cc41/aur-list.pkg
-xargs <aur-list.pkg pacaur -S --needed --noedit 
+sed '/pug/d' aur-list.pkg > aur-list-no-pug.pkg 
+xargs <aur-list-no-pug.pkg pacaur -S --needed --noedit 
 rm aur-list.pkg
 
 cd
