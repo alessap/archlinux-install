@@ -4,6 +4,9 @@
 
 set -exo pipefail
 
+export VISUAL=vim
+export EDITOR=vim
+
 # Install pacaur
 install_pacaur() {
     echo "Install pacaur"
