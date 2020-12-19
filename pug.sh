@@ -48,19 +48,23 @@ cd
 cat ~/.ssh/id_rsa.pub
 read -p "Add SSH key on your github page and press [Yy] to continue: " -n 1 -r
 
-git clone git@github.com:alessap/dotfiles.git
+[[ ! -n dotfiles ]] && git clone git@github.com:alessap/dotfiles.git
 cd dotfiles
 bash create_links.sh
+cd ..
 
 # Install powerline-shell
+if [[ ! -n  ~/.software/powerline-shell ]]  then
 mkdir -p ~/.software
 cd ~/.software
 git clone https://github.com/b-ryan/powerline-shell
 cd powerline-shell
 sudo python setup.py install
 cd ../..
+fi
 
 # Install powerline fonts
+if [[ ! -n  ~/.software/fonts ]]  then
 mkdir -p ~/.software
 cd ~/.software
 # clone
@@ -69,9 +73,8 @@ git clone https://github.com/powerline/fonts.git --depth=1
 cd fonts
 ./install.sh
 # clean-up a bit
-cd ..
-rm -rf fonts
-
+cd ../..
+fi
 # Install fingerprint reader 
 sudo pacman -S --noconfirm --needed fprintd imagemagick
 
