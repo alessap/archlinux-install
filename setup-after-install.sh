@@ -39,11 +39,11 @@ xargs <aur-list-no-pug.pkg pacaur -S --noconfirm --needed --noedit
 rm aur-list*pkg
 
 cd
-[[ ! -n ~/.ssh/id_rsa ]] && ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ""
+[[ ! -e ~/.ssh/id_rsa ]] && ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ""
 cat ~/.ssh/id_rsa.pub
 read -p "Add SSH key on your github page and press [Yy] to continue: " -n 1 -r
 
-if [ ! -n dotfiles ]; then
+if [ ! -e dotfiles ]; then
 git clone git@github.com:alessap/dotfiles.git
 cd dotfiles
 bash create_links.sh
@@ -51,7 +51,7 @@ cd ..
 fi
 
 # Install powerline-shell
-if [ ! -n  ~/.software/powerline-shell ];  then
+if [ ! -e  ~/.software/powerline-shell ];  then
 mkdir -p ~/.software
 cd ~/.software
 git clone https://github.com/b-ryan/powerline-shell
@@ -61,7 +61,7 @@ cd ../..
 fi
 
 # Install powerline fonts
-if [ ! -n  ~/.software/fonts ];  then
+if [ ! -e  ~/.software/fonts ];  then
 mkdir -p ~/.software
 cd ~/.software
 # clone
