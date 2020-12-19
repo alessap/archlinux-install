@@ -48,7 +48,7 @@ cd
 cat ~/.ssh/id_rsa.pub
 read -p "Add SSH key on your github page and press [Yy] to continue: " -n 1 -r
 
-if [[ ! -n dotfiles ]] then
+if [ ! -n dotfiles ]; then
 git clone git@github.com:alessap/dotfiles.git
 cd dotfiles
 bash create_links.sh
@@ -56,7 +56,7 @@ cd ..
 fi
 
 # Install powerline-shell
-if [[ ! -n  ~/.software/powerline-shell ]]  then
+if [ ! -n  ~/.software/powerline-shell ];  then
 mkdir -p ~/.software
 cd ~/.software
 git clone https://github.com/b-ryan/powerline-shell
@@ -66,7 +66,7 @@ cd ../..
 fi
 
 # Install powerline fonts
-if [[ ! -n  ~/.software/fonts ]]  then
+if [ ! -n  ~/.software/fonts ];  then
 mkdir -p ~/.software
 cd ~/.software
 # clone
