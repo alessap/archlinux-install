@@ -44,6 +44,19 @@ chrootsetup() {
     exit 0
 }
 
+chrootsetupbootstrap() {
+    timezone
+    localization
+    network_configuration
+    set_root_passwd
+    install_packages
+    add_user
+    video_driver
+    install_desktop
+    enable_services
+    exit 0
+}
+
 # Update system clock
 system_clock() {
     echo "Update system clock"
@@ -242,7 +255,9 @@ enable_services() {
     systemctl enable cups.service
 }
 
-if [[ $1 == setupchroot ]]; then
+if [[ $1 == bootstrap ]]; then
+    chrootsetupbootstrap
+elif [[ $1 == setupchroot ]]; then
     chrootsetup
 else
     setup
