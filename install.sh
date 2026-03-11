@@ -6,43 +6,15 @@ set -exo pipefail
 
 # Configuration
 
-# Default values
-DEFAULT_DISK="/dev/sdb"
-DEFAULT_COUNTRY="Denmark"
-DEFAULT_KEYMAP="dk-latin1"
-DEFAULT_HOST_NAME="archlinux"
-DEFAULT_USER="user"
-DEFAULT_TIMEZONE="Europe/Copenhagen"
+# Hardcoded configuration
+DISK="/dev/sdb"
+COUNTRY="Denmark"
+KEYMAP="dk-latin1"
+HOST_NAME="archlinux"
+USER="user"
+TIMEZONE="Europe/Copenhagen"
+PASSWD="password"
 DESKTOP="kde"
-
-if [ -z "$DISK" ]; then
-    read -e -i "$DEFAULT_DISK" -p "Enter the target disk device (e.g., /dev/sdb): " DISK
-    if [ -z "$DISK" ]; then DISK="$DEFAULT_DISK"; fi
-fi
-if [ -z "$COUNTRY" ]; then
-    read -e -i "$DEFAULT_COUNTRY" -p "Enter your country for mirrorlist (e.g., Denmark): " COUNTRY
-    if [ -z "$COUNTRY" ]; then COUNTRY="$DEFAULT_COUNTRY"; fi
-fi
-if [ -z "$KEYMAP" ]; then
-    read -e -i "$DEFAULT_KEYMAP" -p "Enter your keymap (e.g., dk-latin1): " KEYMAP
-    if [ -z "$KEYMAP" ]; then KEYMAP="$DEFAULT_KEYMAP"; fi
-fi
-if [ -z "$HOST_NAME" ]; then
-    read -e -i "$DEFAULT_HOST_NAME" -p "Enter hostname: " HOST_NAME
-    if [ -z "$HOST_NAME" ]; then HOST_NAME="$DEFAULT_HOST_NAME"; fi
-fi
-if [ -z "$USER" ]; then
-    read -e -i "$DEFAULT_USER" -p "Enter username: " USER
-    if [ -z "$USER" ]; then USER="$DEFAULT_USER"; fi
-fi
-if [ -z "$TIMEZONE" ]; then
-    read -e -i "$DEFAULT_TIMEZONE" -p "Enter timezone (e.g., Europe/Copenhagen): " TIMEZONE
-    if [ -z "$TIMEZONE" ]; then TIMEZONE="$DEFAULT_TIMEZONE"; fi
-fi
-if [ -z "$PASSWD" ]; then
-    read -s -p "Enter password for encryption and user accounts: " PASSWD
-    echo
-fi
 
 # Main setup
 setup() {
