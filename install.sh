@@ -17,27 +17,27 @@ DESKTOP="kde"
 
 if [ -z "$DISK" ]; then
     read -e -i "$DEFAULT_DISK" -p "Enter the target disk device (e.g., /dev/sdb): " DISK
-    DISK=${DISK:-$DEFAULT_DISK}
+    if [ -z "$DISK" ]; then DISK="$DEFAULT_DISK"; fi
 fi
 if [ -z "$COUNTRY" ]; then
     read -e -i "$DEFAULT_COUNTRY" -p "Enter your country for mirrorlist (e.g., Denmark): " COUNTRY
-    COUNTRY=${COUNTRY:-$DEFAULT_COUNTRY}
+    if [ -z "$COUNTRY" ]; then COUNTRY="$DEFAULT_COUNTRY"; fi
 fi
 if [ -z "$KEYMAP" ]; then
     read -e -i "$DEFAULT_KEYMAP" -p "Enter your keymap (e.g., dk-latin1): " KEYMAP
-    KEYMAP=${KEYMAP:-$DEFAULT_KEYMAP}
+    if [ -z "$KEYMAP" ]; then KEYMAP="$DEFAULT_KEYMAP"; fi
 fi
 if [ -z "$HOST_NAME" ]; then
     read -e -i "$DEFAULT_HOST_NAME" -p "Enter hostname: " HOST_NAME
-    HOST_NAME=${HOST_NAME:-$DEFAULT_HOST_NAME}
+    if [ -z "$HOST_NAME" ]; then HOST_NAME="$DEFAULT_HOST_NAME"; fi
 fi
 if [ -z "$USER" ]; then
     read -e -i "$DEFAULT_USER" -p "Enter username: " USER
-    USER=${USER:-$DEFAULT_USER}
+    if [ -z "$USER" ]; then USER="$DEFAULT_USER"; fi
 fi
 if [ -z "$TIMEZONE" ]; then
     read -e -i "$DEFAULT_TIMEZONE" -p "Enter timezone (e.g., Europe/Copenhagen): " TIMEZONE
-    TIMEZONE=${TIMEZONE:-$DEFAULT_TIMEZONE}
+    if [ -z "$TIMEZONE" ]; then TIMEZONE="$DEFAULT_TIMEZONE"; fi
 fi
 if [ -z "$PASSWD" ]; then
     read -s -p "Enter password for encryption and user accounts: " PASSWD
