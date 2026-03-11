@@ -281,6 +281,7 @@ install_desktop() {
 }
 
 # Enable services
+enable_services() {
     echo "Enable services"
     systemctl enable NetworkManager
     systemctl enable bluetooth
