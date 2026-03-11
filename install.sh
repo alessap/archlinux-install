@@ -16,7 +16,7 @@ DEFAULT_TIMEZONE="Europe/Copenhagen"
 DESKTOP="kde"
 
 if [ -z "$DISK" ]; then
-    read -e -i "$DEFAULT_DISK" -p "Enter the target disk device (e.g., /dev/sda): " DISK
+    read -e -i "$DEFAULT_DISK" -p "Enter the target disk device (e.g., /dev/sdb): " DISK
     DISK=${DISK:-$DEFAULT_DISK}
 fi
 if [ -z "$COUNTRY" ]; then
