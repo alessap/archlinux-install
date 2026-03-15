@@ -135,9 +135,17 @@ encrypt_main_partition_btrfs() {
 
     # Check partition size (require at least 10MiB)
     if command -v blockdev >/dev/null 2>&1; then
-        size_bytes=$(blockdev --getsize64 ${MAIN_PARTITION})
+        if [ -z "${MAIN_PARTITION:-}" ]; then
+            echo "Error: MAIN_PARTITION is not set. Cannot check partition size."
+            exit 1
+        fi
+        # call blockdev with the partition argument and handle errors
+        if ! size_bytes=$(blockdev --getsize64 "${MAIN_PARTITION}" 2>/dev/null); then
+            echo "Warning: blockdev failed for ${MAIN_PARTITION}; skipping size check."
+            size_bytes=0
+        fi
         min_bytes=$((10 * 1024 * 1024))
-        if [ "${size_bytes}" -lt "${min_bytes}" ]; then
+        if [ "${size_bytes}" -ne 0 ] && [ "${size_bytes}" -lt "${min_bytes}" ]; then
             echo "Error: partition ${MAIN_PARTITION} is too small (${size_bytes} bytes) for LUKS."
             echo "Ensure the partition was created correctly and is large enough."
             exit 1
@@ -145,8 +153,29 @@ encrypt_main_partition_btrfs() {
     fi
 
     # Use LUKS2 explicitly and read passphrase from stdin
-    echo -n "${PASSWD}" | cryptsetup luksFormat --type luks2 ${MAIN_PARTITION} - || { echo "LUKS format failed"; exit 1; }
-    echo -n "${PASSWD}" | cryptsetup open ${MAIN_PARTITION} ${CRYPT_NAME} || { echo "LUKS open failed"; exit 1; }
+    echo "--- Debug: before LUKS format ---"
+    lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT -r
+    blkid || true
+    sgdisk -p ${DISK} || true
+    wipefs -n ${MAIN_PARTITION} || true
+
+    echo "Running cryptsetup with --debug; logs will be saved to /tmp/cryptsetup-format.log"
+    printf '%s' "${PASSWD}" | cryptsetup --debug luksFormat --type luks2 ${MAIN_PARTITION} - 2>&1 | tee /tmp/cryptsetup-format.log || {
+        echo "LUKS format failed; dumping logs"
+        echo "--- /tmp/cryptsetup-format.log ---"
+        sed -n '1,200p' /tmp/cryptsetup-format.log || true
+        echo "--- kernel dmesg ---"
+        dmesg | tail -n 200 || true
+        exit 1
+    }
+
+    echo "Opening LUKS mapping with debug; logs -> /tmp/cryptsetup-open.log"
+    printf '%s' "${PASSWD}" | cryptsetup --debug open ${MAIN_PARTITION} ${CRYPT_NAME} 2>&1 | tee /tmp/cryptsetup-open.log || {
+        echo "LUKS open failed; dumping logs"
+        sed -n '1,200p' /tmp/cryptsetup-open.log || true
+        dmesg | tail -n 200 || true
+        exit 1
+    }
 }
 
 # Format and create Btrfs subvolumes
