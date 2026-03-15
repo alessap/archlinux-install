@@ -5,11 +5,11 @@ set -exo pipefail
 # Configuration
 
 # Hardcoded configuration
-DISK="/dev/sdb"
+DISK="/dev/nvme0n1"
 COUNTRY="Denmark"
 KEYMAP="dk-latin1"
-HOST_NAME="archlinux"
-USER="user"
+HOST_NAME="archlinux-x1yoga"
+USER="alessap"
 TIMEZONE="Europe/Copenhagen"
 PASSWD="password"
 DESKTOP="kde"
