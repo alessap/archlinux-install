@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# tested on a ThinkPad X260
-
 set -exo pipefail
 
 # Configuration
@@ -15,17 +13,29 @@ USER="user"
 TIMEZONE="Europe/Copenhagen"
 PASSWD="password"
 DESKTOP="kde"
+USE_BTRFS=true
+# Btrfs-specific hardcoded configuration
+CRYPT_NAME="cryptlvm"
+EFI_SIZE="260M"
+BTRFS_MOUNT_OPTS="noatime,compress=zstd:1,space_cache=v2"
 
 # Main setup
 setup() {
     system_clock
     create_mirrorlist
     zap_disk
-    partition_disk
-    encrypt_main_partition
-    create_volumes
-    format_partitions
-    mount_file_system
+    if [[ "${USE_BTRFS}" == "true" ]]; then
+        partition_disk_btrfs
+        encrypt_main_partition_btrfs
+        format_create_btrfs
+        mount_btrfs_subvolumes
+    else
+        partition_disk
+        encrypt_main_partition
+        create_volumes
+        format_partitions
+        mount_file_system
+    fi
     install_base
     chroot
 }
@@ -43,6 +53,22 @@ chrootsetup() {
     video_driver
     install_desktop
     enable_services
+    # Configure automatic Btrfs snapshots using snapper
+    echo "Configure snapper and automatic snapshots"
+    if command -v pacman >/dev/null 2>&1; then
+        pacman -Sy --noconfirm snapper || true
+    fi
+    # Create snapper configs for root and home if Btrfs is used
+    if [[ "${USE_BTRFS}" == "true" ]]; then
+        snapper -c root create-config / || true
+        # create home config only if /home is a btrfs subvolume
+        if mount | grep -q "/mnt"; then
+            true
+        fi
+        snapper -c home create-config /home || true
+        systemctl enable snapper-timeline.timer || true
+        systemctl enable snapper-cleanup.timer || true
+    fi
     exit 0
 }
 
@@ -75,13 +101,63 @@ create_mirrorlist() {
 
 # Zap disk
 zap_disk() {
-    echo "Zapping disk ${DISK}"
-    read -p "WARNING: This will erase all data on $DISK. Type YES to continue: " confirm
-    if [[ "$confirm" != "YES" ]]; then
-        echo "Aborting disk zap."
-        exit 1
-    fi
+    echo "Zapping disk ${DISK} (non-interactive)"
     sgdisk --zap-all $DISK || { echo "Failed to zap disk $DISK"; exit 1; }
+}
+
+# Partition disk for Btrfs (non-interactive)
+partition_disk_btrfs() {
+    echo "Partitioning disk ${DISK} for EFI + LUKS (Btrfs)"
+    sgdisk -n 1:0:+${EFI_SIZE} -t 1:ef00 ${DISK} || { echo "Failed to create EFI partition on $DISK"; exit 1; }
+    sgdisk -n 2:0:0 -t 2:8300 ${DISK} || { echo "Failed to create main partition on $DISK"; exit 1; }
+
+    # detect partition names (works for /dev/sdX and /dev/nvmeXnY)
+    if [[ "${DISK}" =~ nvme ]]; then
+        UEFI_PARTITION=${DISK}p1
+        MAIN_PARTITION=${DISK}p2
+    else
+        UEFI_PARTITION=${DISK}1
+        MAIN_PARTITION=${DISK}2
+    fi
+
+    echo "EFI partition: $UEFI_PARTITION"
+    echo "Main partition: $MAIN_PARTITION"
+}
+
+# Encrypt the main partition for Btrfs
+encrypt_main_partition_btrfs() {
+    echo "Encrypting main partition ${MAIN_PARTITION} as ${CRYPT_NAME}"
+    echo -n "${PASSWD}" | cryptsetup luksFormat ${MAIN_PARTITION} - || { echo "LUKS format failed"; exit 1; }
+    echo -n "${PASSWD}" | cryptsetup open ${MAIN_PARTITION} ${CRYPT_NAME} || { echo "LUKS open failed"; exit 1; }
+}
+
+# Format and create Btrfs subvolumes
+format_create_btrfs() {
+    echo "Creating Btrfs filesystem on /dev/mapper/${CRYPT_NAME}"
+    mkfs.btrfs /dev/mapper/${CRYPT_NAME} || { echo "mkfs.btrfs failed"; exit 1; }
+
+    mount /dev/mapper/${CRYPT_NAME} /mnt || { echo "mount failed"; exit 1; }
+    btrfs subvolume create /mnt/@ || true
+    btrfs subvolume create /mnt/@home || true
+    btrfs subvolume create /mnt/@pkg || true
+    btrfs subvolume create /mnt/@log || true
+    btrfs subvolume create /mnt/@snapshots || true
+    umount /mnt
+}
+
+# Mount Btrfs subvolumes and EFI
+mount_btrfs_subvolumes() {
+    echo "Mounting Btrfs subvolumes"
+    mount -o ${BTRFS_MOUNT_OPTS},subvol=@ /dev/mapper/${CRYPT_NAME} /mnt || { echo "mount root subvol failed"; exit 1; }
+    mkdir -p /mnt/{boot,home/var/log,var/cache/pacman/pkg,.snapshots}
+    mount -o ${BTRFS_MOUNT_OPTS},subvol=@home /dev/mapper/${CRYPT_NAME} /mnt/home || { echo "mount home failed"; exit 1; }
+    mount -o ${BTRFS_MOUNT_OPTS},subvol=@pkg /dev/mapper/${CRYPT_NAME} /mnt/var/cache/pacman/pkg || true
+    mount -o ${BTRFS_MOUNT_OPTS},subvol=@log /dev/mapper/${CRYPT_NAME} /mnt/var/log || true
+    mount -o ${BTRFS_MOUNT_OPTS},subvol=@snapshots /dev/mapper/${CRYPT_NAME} /mnt/.snapshots || true
+
+    mkdir -p /mnt/boot
+    mkfs.fat -F32 ${UEFI_PARTITION} || { echo "mkfs.fat failed"; exit 1; }
+    mount ${UEFI_PARTITION} /mnt/boot || { echo "mount boot failed"; exit 1; }
 }
 
 # Parition disk
@@ -140,7 +216,7 @@ mount_file_system() {
 install_base() {
     echo "Install base"
     # Pacstrap latest Arch base and latest kernel
-    pacstrap /mnt base linux linux-firmware neovim intel-ucode lvm2
+    pacstrap /mnt base linux linux-firmware neovim intel-ucode btrfs-progs snapper
 
     # Generate filesystem table
     genfstab -U /mnt >> /mnt/etc/fstab
@@ -149,7 +225,7 @@ install_base() {
 # Configure system
 chroot() {
     echo "Configure system"
-    cp install.sh /mnt/root/install.sh
+    cp 01_install.sh /mnt/root/install.sh
     chmod +x /mnt/root/install.sh
     arch-chroot /mnt /root/install.sh setupchroot
 }
