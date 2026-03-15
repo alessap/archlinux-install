@@ -127,7 +127,25 @@ partition_disk_btrfs() {
 # Encrypt the main partition for Btrfs
 encrypt_main_partition_btrfs() {
     echo "Encrypting main partition ${MAIN_PARTITION} as ${CRYPT_NAME}"
-    echo -n "${PASSWD}" | cryptsetup luksFormat ${MAIN_PARTITION} - || { echo "LUKS format failed"; exit 1; }
+    # Ensure kernel sees the newest partition table
+    partprobe ${DISK} || true
+
+    # Remove any leftover signatures that may interfere
+    wipefs -a ${MAIN_PARTITION} || true
+
+    # Check partition size (require at least 10MiB)
+    if command -v blockdev >/dev/null 2>&1; then
+        size_bytes=$(blockdev --getsize64 ${MAIN_PARTITION})
+        min_bytes=$((10 * 1024 * 1024))
+        if [ "${size_bytes}" -lt "${min_bytes}" ]; then
+            echo "Error: partition ${MAIN_PARTITION} is too small (${size_bytes} bytes) for LUKS."
+            echo "Ensure the partition was created correctly and is large enough."
+            exit 1
+        fi
+    fi
+
+    # Use LUKS2 explicitly and read passphrase from stdin
+    echo -n "${PASSWD}" | cryptsetup luksFormat --type luks2 ${MAIN_PARTITION} - || { echo "LUKS format failed"; exit 1; }
     echo -n "${PASSWD}" | cryptsetup open ${MAIN_PARTITION} ${CRYPT_NAME} || { echo "LUKS open failed"; exit 1; }
 }
 
