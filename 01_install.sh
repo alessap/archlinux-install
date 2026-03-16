@@ -21,6 +21,7 @@ BTRFS_MOUNT_OPTS="noatime,compress=zstd:1,space_cache=v2"
 
 # Main setup
 setup() {
+    cleanup_previous_install
     system_clock
     create_mirrorlist
     zap_disk
@@ -38,6 +39,54 @@ setup() {
     fi
     install_base
     chroot
+}
+
+# Cleanup artifacts from previous runs to make the script rerunnable
+cleanup_previous_install() {
+    echo "Cleaning previous install artifacts (unmounting, closing mappings, wiping temp files)"
+
+    # Unmount any mounts under /mnt (reverse order)
+    if mount | grep -q ' /mnt'; then
+        mount | awk '{print $3}' | grep '^/mnt' | sort -r | xargs -r -n1 umount -l || true
+    fi
+
+    # Disable swap devices that live on the target (only disable ones under /dev/mapper or /dev/vg1)
+    if command -v swapon >/dev/null 2>&1; then
+        swapon --show=NAME --noheadings | while read -r s; do
+            case "${s}" in
+                /dev/mapper/*|/dev/vg1/*) swapoff "${s}" || true ;;
+            esac
+        done
+    fi
+
+    # Close known crypt mappings (best-effort)
+    for name in "${CRYPT_NAME}" cryptlvm cryptroot; do
+        if [ -n "${name}" ] && cryptsetup status "${name}" >/dev/null 2>&1; then
+            echo "Closing crypt mapping ${name}"
+            cryptsetup luksClose "${name}" || true
+        fi
+    done
+
+    # Deactivate LVM volume group if present
+    if command -v vgdisplay >/dev/null 2>&1 && vgdisplay vg1 >/dev/null 2>&1; then
+        vgchange -an vg1 || true
+        lvremove -f vg1/root || true
+        vgremove -f vg1 || true
+    fi
+
+    # Remove any stale device files at partition paths
+    if [ -n "${MAIN_PARTITION:-}" ] && [ ! -b "${MAIN_PARTITION}" ] && [ -e "${MAIN_PARTITION}" ]; then
+        echo "Removing stale file ${MAIN_PARTITION}"
+        rm -f "${MAIN_PARTITION}" || true
+    fi
+
+    # Remove any temporary cryptsetup logs
+    rm -f /tmp/cryptsetup-*.log || true
+
+    # Clean mountpoint contents
+    if [ -d /mnt ]; then
+        rm -rf /mnt/* || true
+    fi
 }
 
 # Chroot setup
@@ -256,7 +305,7 @@ format_create_btrfs() {
 mount_btrfs_subvolumes() {
     echo "Mounting Btrfs subvolumes"
     mount -o ${BTRFS_MOUNT_OPTS},subvol=@ /dev/mapper/${CRYPT_NAME} /mnt || { echo "mount root subvol failed"; exit 1; }
-    mkdir -p /mnt/{boot,home/var/log,var/cache/pacman/pkg,.snapshots}
+    mkdir -p /mnt/boot /mnt/home /mnt/var/log /mnt/var/cache/pacman/pkg /mnt/.snapshots
     mount -o ${BTRFS_MOUNT_OPTS},subvol=@home /dev/mapper/${CRYPT_NAME} /mnt/home || { echo "mount home failed"; exit 1; }
     mount -o ${BTRFS_MOUNT_OPTS},subvol=@pkg /dev/mapper/${CRYPT_NAME} /mnt/var/cache/pacman/pkg || true
     mount -o ${BTRFS_MOUNT_OPTS},subvol=@log /dev/mapper/${CRYPT_NAME} /mnt/var/log || true
