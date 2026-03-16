@@ -322,6 +322,9 @@ mount_file_system() {
 # Install base
 install_base() {
     echo "Install base"
+    # Ensure target /etc exists and provide vconsole config so mkinitcpio hooks don't fail
+    mkdir -p /mnt/etc
+    echo "KEYMAP=${KEYMAP}" > /mnt/etc/vconsole.conf
     # Pacstrap latest Arch base and latest kernel
     pacstrap /mnt base linux linux-firmware neovim intel-ucode btrfs-progs snapper
 
