@@ -122,6 +122,13 @@ partition_disk_btrfs() {
 
     echo "EFI partition: $UEFI_PARTITION"
     echo "Main partition: $MAIN_PARTITION"
+    # Inform kernel of partition changes and wait for udev
+    partprobe ${DISK} || true
+    udevadm settle || true
+    sleep 1
+
+    echo "Current partitions:" 
+    lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT -r ${DISK} || true
 }
 
 # Encrypt the main partition for Btrfs
@@ -144,10 +151,15 @@ encrypt_main_partition_btrfs() {
             echo "Warning: blockdev failed for ${MAIN_PARTITION}; skipping size check."
             size_bytes=0
         fi
-        min_bytes=$((10 * 1024 * 1024))
+        min_bytes=$((100 * 1024 * 1024))
         if [ "${size_bytes}" -ne 0 ] && [ "${size_bytes}" -lt "${min_bytes}" ]; then
-            echo "Error: partition ${MAIN_PARTITION} is too small (${size_bytes} bytes) for LUKS."
-            echo "Ensure the partition was created correctly and is large enough."
+            echo "Error: partition ${MAIN_PARTITION} is unexpectedly small (${size_bytes} bytes) for LUKS."
+            echo "Dumping partition diagnostics for ${DISK}:"
+            fdisk -l ${DISK} || true
+            sgdisk -p ${DISK} || true
+            lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT -r ${DISK} || true
+            blkid || true
+            echo "Aborting to avoid writing a LUKS header to a tiny device."
             exit 1
         fi
     fi
