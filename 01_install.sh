@@ -374,6 +374,14 @@ install_base() {
     # Ensure target /etc exists and provide vconsole config so mkinitcpio hooks don't fail
     mkdir -p /mnt/etc
     echo "KEYMAP=${KEYMAP}" > /mnt/etc/vconsole.conf
+    # Some package hooks expect 'pdata_tools' during initramfs build; provide a temporary stub
+    mkdir -p /mnt/usr/bin
+    cat > /mnt/usr/bin/pdata_tools <<'EOF'
+#!/bin/sh
+echo "pdata_tools stub"
+exit 0
+EOF
+    chmod +x /mnt/usr/bin/pdata_tools
     # Pacstrap latest Arch base and latest kernel
     pacstrap /mnt base linux linux-firmware neovim intel-ucode btrfs-progs snapper
 
