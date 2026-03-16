@@ -186,7 +186,28 @@ encrypt_main_partition_btrfs() {
         echo "LUKS open failed; dumping logs"
         sed -n '1,200p' /tmp/cryptsetup-open.log || true
         dmesg | tail -n 200 || true
-        exit 1
+
+        # If failure due to "too small for activation", attempt fallback with pbkdf2
+        if grep -q "too small for activation" /tmp/cryptsetup-open.log 2>/dev/null; then
+            echo "Detected 'too small for activation'. Retrying format using PBKDF=pdkdf2 to reduce metadata size."
+            wipefs -a ${MAIN_PARTITION} || true
+            printf '%s' "${PASSWD}" | cryptsetup --debug luksFormat --type luks2 --pbkdf pbkdf2 ${MAIN_PARTITION} - 2>&1 | tee /tmp/cryptsetup-format-fallback.log || {
+                echo "Fallback LUKS format failed; see /tmp/cryptsetup-format-fallback.log"
+                sed -n '1,200p' /tmp/cryptsetup-format-fallback.log || true
+                exit 1
+            }
+
+            echo "Attempting to open mapping after fallback format"
+            printf '%s' "${PASSWD}" | cryptsetup --debug open ${MAIN_PARTITION} ${CRYPT_NAME} 2>&1 | tee /tmp/cryptsetup-open-fallback.log || {
+                echo "Fallback open failed; dumping /tmp/cryptsetup-open-fallback.log"
+                sed -n '1,200p' /tmp/cryptsetup-open-fallback.log || true
+                dmesg | tail -n 200 || true
+                exit 1
+            }
+            echo "Fallback LUKS open succeeded"
+        else
+            exit 1
+        fi
     }
 }
 
