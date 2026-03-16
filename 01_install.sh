@@ -140,6 +140,33 @@ encrypt_main_partition_btrfs() {
     # Remove any leftover signatures that may interfere
     wipefs -a ${MAIN_PARTITION} || true
 
+    # If the partition path is not a block device (regular file may exist), remove it and trigger udev
+    if [ ! -b "${MAIN_PARTITION}" ]; then
+        echo "Warning: ${MAIN_PARTITION} is not a block device. Removing stale file and triggering udev."
+        rm -f "${MAIN_PARTITION}" || true
+        partprobe ${DISK} || true
+        udevadm trigger --action=add || true
+        udevadm settle || true
+        sleep 1
+
+        # If still not a block device, attempt to create node using MAJ:MIN from lsblk
+        if [ ! -b "${MAIN_PARTITION}" ]; then
+            majmin=$(lsblk -nr -o MAJ:MIN,NAME | awk -v name="$(basename ${MAIN_PARTITION})" '$2==name {print $1}') || true
+            if [ -n "${majmin}" ]; then
+                maj=$(echo ${majmin} | cut -d: -f1)
+                min=$(echo ${majmin} | cut -d: -f2)
+                echo "Creating block device node ${MAIN_PARTITION} with major=${maj} minor=${min}"
+                mknod "${MAIN_PARTITION}" b ${maj} ${min} || true
+                chown root:disk "${MAIN_PARTITION}" || true
+            fi
+        fi
+
+        if [ ! -b "${MAIN_PARTITION}" ]; then
+            echo "Failed to obtain a block device node for ${MAIN_PARTITION}; aborting."
+            exit 1
+        fi
+    fi
+
     # Check partition size (require at least 10MiB)
     if command -v blockdev >/dev/null 2>&1; then
         if [ -z "${MAIN_PARTITION:-}" ]; then
