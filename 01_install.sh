@@ -390,11 +390,11 @@ install_base() {
     # If a stub is required for mkinitcpio hooks, create it after `pacstrap` or inside the chroot.
     # Pacstrap latest Arch base and latest kernel
     # Choose packages; avoid interactive provider prompts and make lvm2 conditional
-    pkgs=(base linux linux-firmware neovim intel-ucode btrfs-progs snapper cryptsetup)
+    pkgs=(base linux linux-firmware neovim intel-ucode btrfs-progs snapper mkinitcpio cryptsetup)
     if [[ "${USE_BTRFS}" != "true" ]]; then
         pkgs+=(lvm2)
     fi
-    pacstrap --noconfirm --needed /mnt "${pkgs[@]}"
+    pacstrap /mnt "${pkgs[@]}"
 
     # Generate filesystem table
     genfstab -U /mnt > /mnt/etc/fstab
