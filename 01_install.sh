@@ -103,22 +103,17 @@ chrootsetup() {
     install_desktop
     enable_services
     # Configure automatic Btrfs snapshots using snapper
-    echo "Configure snapper and automatic snapshots"
-    if command -v pacman >/dev/null 2>&1; then
-        pacman -Sy --noconfirm snapper || true
-    fi
-    # Create snapper configs for root and home if Btrfs is used
+    # Configure snapper and automatic snapshots (only if Btrfs)
     if [[ "${USE_BTRFS}" == "true" ]]; then
-        snapper -c root create-config / || true
-        # create home config only if /home is a btrfs subvolume
-        if mount | grep -q "/mnt"; then
-            true
+        if command -v pacman >/dev/null 2>&1; then
+            pacman -Sy --noconfirm snapper || true
         fi
+        # Create snapper configs; ignore failures if not btrfs
+        snapper -c root create-config / || true
         snapper -c home create-config /home || true
         systemctl enable snapper-timeline.timer || true
         systemctl enable snapper-cleanup.timer || true
     fi
-    exit 0
 }
 
 chrootsetupbootstrap() {
@@ -183,6 +178,15 @@ partition_disk_btrfs() {
 # Encrypt the main partition for Btrfs
 encrypt_main_partition_btrfs() {
     echo "Encrypting main partition ${MAIN_PARTITION} as ${CRYPT_NAME}"
+    # Sanity check: MAIN_PARTITION must be set and a block device
+    if [ -z "${MAIN_PARTITION:-}" ]; then
+        echo "Error: MAIN_PARTITION is not set. Aborting." >&2
+        exit 1
+    fi
+    if [ ! -b "${MAIN_PARTITION}" ]; then
+        echo "Error: ${MAIN_PARTITION} is not a block device. Aborting." >&2
+        exit 1
+    fi
     # Ensure kernel sees the newest partition table
     partprobe ${DISK} || true
 
@@ -247,20 +251,25 @@ encrypt_main_partition_btrfs() {
     sgdisk -p ${DISK} || true
     wipefs -n ${MAIN_PARTITION} || true
 
-    echo "Running cryptsetup with --debug; logs will be saved to /tmp/cryptsetup-format.log"
-    printf '%s' "${PASSWD}" | cryptsetup --debug luksFormat --type luks2 ${MAIN_PARTITION} - 2>&1 | tee /tmp/cryptsetup-format.log || {
-        echo "LUKS format failed; dumping logs"
-        echo "--- /tmp/cryptsetup-format.log ---"
-        sed -n '1,200p' /tmp/cryptsetup-format.log || true
-        echo "--- kernel dmesg ---"
+    # Use secure temporary log files with restricted permissions
+    TMP_FMT=$(mktemp /tmp/cryptsetup-format.XXXXXX)
+    TMP_OPEN=$(mktemp /tmp/cryptsetup-open.XXXXXX)
+    chmod 600 "$TMP_FMT" "$TMP_OPEN" || true
+
+    echo "Running cryptsetup with --debug; logs will be saved to ${TMP_FMT}"
+    printf '%s' "${PASSWD}" | cryptsetup --debug luksFormat --type luks2 ${MAIN_PARTITION} - 2>&1 | tee "$TMP_FMT" || {
+        echo "LUKS format failed; dumping logs" >&2
+        sed -n '1,200p' "$TMP_FMT" || true
+        echo "--- kernel dmesg ---" >&2
         dmesg | tail -n 200 || true
+        rm -f "$TMP_FMT" "$TMP_OPEN" || true
         exit 1
     }
 
-    echo "Opening LUKS mapping with debug; logs -> /tmp/cryptsetup-open.log"
-    printf '%s' "${PASSWD}" | cryptsetup --debug open ${MAIN_PARTITION} ${CRYPT_NAME} 2>&1 | tee /tmp/cryptsetup-open.log || {
-        echo "LUKS open failed; dumping logs"
-        sed -n '1,200p' /tmp/cryptsetup-open.log || true
+    echo "Opening LUKS mapping with debug; logs -> ${TMP_OPEN}"
+    printf '%s' "${PASSWD}" | cryptsetup --debug open ${MAIN_PARTITION} ${CRYPT_NAME} 2>&1 | tee "$TMP_OPEN" || {
+        echo "LUKS open failed; dumping logs" >&2
+        sed -n '1,200p' "$TMP_OPEN" || true
         dmesg | tail -n 200 || true
 
         # If failure due to "too small for activation", attempt fallback with pbkdf2
@@ -282,9 +291,12 @@ encrypt_main_partition_btrfs() {
             }
             echo "Fallback LUKS open succeeded"
         else
-            exit 1
+                rm -f "$TMP_FMT" "$TMP_OPEN" || true
+                exit 1
         fi
     }
+        # Cleanup sensitive logs
+        rm -f "$TMP_FMT" "$TMP_OPEN" || true
 }
 
 # Format and create Btrfs subvolumes
@@ -377,10 +389,37 @@ install_base() {
     # Do not create /mnt/usr/bin/pdata_tools here to avoid conflicts with packages.
     # If a stub is required for mkinitcpio hooks, create it after `pacstrap` or inside the chroot.
     # Pacstrap latest Arch base and latest kernel
-    pacstrap /mnt base linux linux-firmware neovim intel-ucode btrfs-progs snapper lvm2 cryptsetup
+    # Choose packages; avoid interactive provider prompts and make lvm2 conditional
+    pkgs=(base linux linux-firmware neovim intel-ucode btrfs-progs snapper cryptsetup)
+    if [[ "${USE_BTRFS}" != "true" ]]; then
+        pkgs+=(lvm2)
+    fi
+    pacstrap --noconfirm --needed /mnt "${pkgs[@]}"
 
     # Generate filesystem table
-    genfstab -U /mnt >> /mnt/etc/fstab
+    genfstab -U /mnt > /mnt/etc/fstab
+
+    # If using Btrfs, replace fstab entries with explicit subvol= lines to ensure correct mounts
+    if [[ "${USE_BTRFS}" == "true" ]]; then
+        CRYPT_UUID=$(blkid -s UUID -o value /dev/mapper/${CRYPT_NAME} 2>/dev/null || true)
+        EFI_UUID=$(blkid -s UUID -o value ${UEFI_PARTITION} 2>/dev/null || true)
+        if [ -z "${CRYPT_UUID}" ]; then
+            echo "Warning: could not determine UUID for /dev/mapper/${CRYPT_NAME}; leaving autogenerated fstab" >&2
+        else
+            cat > /mnt/etc/fstab <<EOF
+UUID=${CRYPT_UUID} / btrfs ${BTRFS_MOUNT_OPTS},subvol=@ 0 0
+UUID=${CRYPT_UUID} /home btrfs ${BTRFS_MOUNT_OPTS},subvol=@home 0 0
+UUID=${CRYPT_UUID} /var/cache/pacman/pkg btrfs ${BTRFS_MOUNT_OPTS},subvol=@pkg 0 0
+UUID=${CRYPT_UUID} /var/log btrfs ${BTRFS_MOUNT_OPTS},subvol=@log 0 0
+UUID=${CRYPT_UUID} /.snapshots btrfs ${BTRFS_MOUNT_OPTS},subvol=@snapshots 0 0
+EOF
+            if [ -n "${EFI_UUID}" ]; then
+                echo "UUID=${EFI_UUID} /boot vfat defaults 0 2" >> /mnt/etc/fstab
+            else
+                echo "${UEFI_PARTITION} /boot vfat defaults 0 2" >> /mnt/etc/fstab
+            fi
+        fi
+    fi
 }
 
 # Configure system
@@ -432,29 +471,31 @@ set_root_passwd() {
 # Install packages
 install_packages() {
     echo "Install packages"
-    pacman -Sy --noconfirm powertop grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pipewire pipewire-pulse cups xdg-utils xdg-user-dirs lvm2 cryptsetup
+    # Build package list deterministically; avoid installing lvm2 when using Btrfs
+    pkgs=(powertop grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pipewire pipewire-pulse cups xdg-utils xdg-user-dirs cryptsetup)
+    if [[ "${USE_BTRFS}" != "true" ]]; then
+        pkgs+=(lvm2)
+    fi
+    pacman -Sy --noconfirm --needed "${pkgs[@]}"
 }
 
 # Initramfs
 initramfs() {
-    echo "Initramfs"
-    HOOKS=$(cat /etc/mkinitcpio.conf | grep "^HOOKS=(")
-    MOD_HOOKS=""
-    for i in $HOOKS
-    do
-        if [[ "$i" == "autodetect" ]]; then
-            HOOK="$i keymap"
-        elif [[ "$i" == "filesystems" ]]; then
-            HOOK="encrypt lvm2 resume $i"
-        else
-            HOOK="$i"
+    HOOKS_LINE=$(grep '^HOOKS=(' /etc/mkinitcpio.conf || true)
+    if [ -z "${HOOKS_LINE}" ]; then
+        echo "Could not find HOOKS line in /etc/mkinitcpio.conf" >&2
+    else
+        # Insert encrypt hook; include lvm2 only when not using plain Btrfs
+        ADD_HOOKS="encrypt"
+        if [[ "${USE_BTRFS}" != "true" ]]; then
+            ADD_HOOKS="${ADD_HOOKS} lvm2"
         fi
-        MOD_HOOKS="${MOD_HOOKS} ${HOOK}"
-    done
-    MOD_HOOKS=${MOD_HOOKS:1}
+        # Replace the token 'filesystems' with '<ADD_HOOKS> resume filesystems'
+        sed -i "/^HOOKS=(/s/filesystems/${ADD_HOOKS} resume filesystems/" /etc/mkinitcpio.conf || true
+    fi
 
-    sed -i "s/^HOOKS=(.*/${MOD_HOOKS}/g" /etc/mkinitcpio.conf
-
+    # Rebuild all presets non-interactively
+    mkinitcpio -P
     mkinitcpio -p linux
 }
 
@@ -462,21 +503,45 @@ initramfs() {
 bootloader() {
     echo "Install bootloader"
     grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
-    MAIN_PARTITION=$(fdisk -l $DISK | grep 'LVM' | awk '{print $1}')
-    MAIN_PARTITION_UUID=$(blkid | grep $MAIN_PARTITION | awk '{print $2}')
-    GRUB_CMD="cryptdevice=${MAIN_PARTITION_UUID}:cryptlvm root=\/dev\/vg1\/root resume=\/dev\/mapper\/vg1-swap"
-    sed -i "s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"${GRUB_CMD}\"/g" /etc/default/grub
+    # Determine main encrypted partition; prefer existing MAIN_PARTITION or detect crypto_LUKS
+    if [ -z "${MAIN_PARTITION:-}" ] || [ ! -b "${MAIN_PARTITION}" ]; then
+        MAIN_PARTITION=$(lsblk -nr -o PATH,TYPE,FSTYPE | awk '$3=="crypto_LUKS" {print $1; exit}') || true
+    fi
+    if [ -z "${MAIN_PARTITION:-}" ]; then
+        echo "Warning: could not detect main encrypted partition for GRUB cmdline; skipping GRUB_CMDLINE_LINUX update" >&2
+    else
+        MAIN_UUID=$(blkid -s UUID -o value "${MAIN_PARTITION}" 2>/dev/null || true)
+        if [ -n "${MAIN_UUID}" ]; then
+            # Use UUID form for cryptdevice
+            GRUB_CMD="cryptdevice=UUID=${MAIN_UUID}:cryptlvm root=/dev/mapper/cryptlvm"
+            # Add resume only if swap logical device exists (vg1/swap)
+            if [ -e /dev/vg1/swap ] || [ -e /dev/mapper/vg1-swap ]; then
+                GRUB_CMD="${GRUB_CMD} resume=/dev/mapper/vg1-swap"
+            fi
+            # Ensure GRUB_ENABLE_CRYPTODISK is set
+            if ! grep -q '^GRUB_ENABLE_CRYPTODISK=' /etc/default/grub 2>/dev/null; then
+                echo 'GRUB_ENABLE_CRYPTODISK=y' >> /etc/default/grub
+            else
+                sed -i "s/^GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/" /etc/default/grub
+            fi
+            sed -i "s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"${GRUB_CMD}\"/g" /etc/default/grub || true
+        else
+            echo "Warning: could not determine UUID for ${MAIN_PARTITION}; skipping GRUB cmdline update" >&2
+        fi
+    fi
+
     grub-mkconfig -o /boot/grub/grub.cfg
 }
 
 # Add user
 add_user() {
     echo "Add user"
-    useradd -mG wheel $USER
-    echo -n "${USER}:${PASSWD}" | chpasswd
-    # Safely enable wheel group sudo using visudo
-    if ! grep -q '^%wheel ALL=(ALL) ALL' /etc/sudoers; then
-        EDITOR="sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/'" visudo
+    useradd -m -G wheel -s /bin/bash "$USER" || true
+    echo -n "${USER}:${PASSWD}" | chpasswd || true
+    # Create a sudoers.d drop-in to enable wheel without interactive visudo
+    if [ ! -f /etc/sudoers.d/wheel ]; then
+        echo '%wheel ALL=(ALL) ALL' > /etc/sudoers.d/wheel
+        chmod 0440 /etc/sudoers.d/wheel
     fi
 }
 
