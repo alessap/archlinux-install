@@ -383,7 +383,7 @@ exit 0
 EOF
     chmod +x /mnt/usr/bin/pdata_tools
     # Pacstrap latest Arch base and latest kernel
-    pacstrap /mnt base linux linux-firmware neovim intel-ucode btrfs-progs snapper
+    pacstrap /mnt base linux linux-firmware neovim intel-ucode btrfs-progs snapper lvm2 cryptsetup
 
     # Generate filesystem table
     genfstab -U /mnt >> /mnt/etc/fstab
@@ -438,7 +438,7 @@ set_root_passwd() {
 # Install packages
 install_packages() {
     echo "Install packages"
-    pacman -Sy --noconfirm powertop grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pipewire pipewire-pulse cups xdg-utils xdg-user-dirs
+    pacman -Sy --noconfirm powertop grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pipewire pipewire-pulse cups xdg-utils xdg-user-dirs lvm2 cryptsetup
 }
 
 # Initramfs
