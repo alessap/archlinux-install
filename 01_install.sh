@@ -565,7 +565,9 @@ video_driver() {
 # Desktop
 install_desktop() {
     echo "Install KDE Plasma (Wayland) and display manager"
-    pacman -Sy --noconfirm plasma-meta plasma sddm plasma-wayland-session
+    # Install plasma and sddm; plasma-wayland-session is plasma-workspace
+    pkgs=(plasma-meta sddm plasma-workspace)
+    pacman -Sy --noconfirm --needed "${pkgs[@]}"
     systemctl enable sddm
 }
 
