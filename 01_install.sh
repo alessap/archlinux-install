@@ -528,7 +528,7 @@ bootloader() {
             else
                 sed -i "s/^GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/" /etc/default/grub
             fi
-            sed -i "s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"${GRUB_CMD}\"/g" /etc/default/grub || true
+            sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${GRUB_CMD}\"|g" /etc/default/grub || true
         else
             echo "Warning: could not determine UUID for ${MAIN_PARTITION}; skipping GRUB cmdline update" >&2
         fi
