@@ -108,9 +108,8 @@ chrootsetup() {
         if command -v pacman >/dev/null 2>&1; then
             pacman -Sy --noconfirm snapper || true
         fi
-        # Create snapper configs; ignore failures if not btrfs
-        snapper -c root create-config / || true
-        snapper -c home create-config /home || true
+        # Defer snapper create-config to first boot where systemd/DBus is available
+        echo "Deferred: snapper create-config will run on first boot" || true
         systemctl enable snapper-timeline.timer || true
         systemctl enable snapper-cleanup.timer || true
     fi
@@ -427,6 +426,11 @@ chroot() {
     echo "Configure system"
     cp 01_install.sh /mnt/root/install.sh
     chmod +x /mnt/root/install.sh
+    # Copy first-boot snapper script into the target root so it can be run on first boot
+    if [ -f 02_firstboot_snapper.sh ]; then
+        cp 02_firstboot_snapper.sh /mnt/root/firstboot-snapper.sh
+        chmod +x /mnt/root/firstboot-snapper.sh
+    fi
     arch-chroot /mnt /root/install.sh setupchroot
 }
 
