@@ -517,6 +517,8 @@ set_root_passwd() {
 
 # Install packages
 install_packages() {
+    echo "disable download user alpm in /etc/pacman.conf"
+    sed -i '/^[[:space:]]*DownloadUser[[:space:]]*=[[:space:]]*alpm/s/^/#/' /etc/pacman.conf
     echo "Install packages"
     # Build package list deterministically; avoid installing lvm2 when using Btrfs
     pkgs=(powertop grub efibootmgr networkmanager network-manager-applet wireless_tools wpa_supplicant dialog mtools dosfstools base-devel linux-headers git reflector bluez bluez-utils pipewire pipewire-pulse cups xdg-utils xdg-user-dirs cryptsetup)
