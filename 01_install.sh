@@ -395,6 +395,49 @@ install_base() {
     fi
     pacstrap /mnt "${pkgs[@]}"
 
+    # Reconcile any packages that installed a skeleton /etc under
+    # /usr/share/factory/etc (some package installers may write there).
+    # Move or merge that tree into /mnt/etc so the target system has
+    # a proper /etc layout available for subsequent steps.
+    if [ -d /mnt/usr/share/factory/etc ]; then
+        echo "Reconciling /mnt/usr/share/factory/etc -> /mnt/etc"
+        # If /mnt/etc is empty or missing, prefer a fast move
+        if [ ! -d /mnt/etc ] || [ -z "$(ls -A /mnt/etc 2>/dev/null)" ]; then
+            echo "Moving factory etc into place"
+            mv /mnt/usr/share/factory/etc /mnt/etc || {
+                echo "mv failed, attempting copy fallback"
+                mkdir -p /mnt/etc
+                cp -a /mnt/usr/share/factory/etc/* /mnt/etc/ || true
+                rm -rf /mnt/usr/share/factory/etc || true
+            }
+        else
+            # /mnt/etc exists and is non-empty: perform a safe merge
+            TIMESTAMP=$(date +%s)
+            BACKUP_DIR="/mnt/etc._backup.${TIMESTAMP}"
+            mkdir -p "${BACKUP_DIR}"
+            if command -v rsync >/dev/null 2>&1; then
+                rsync -a --backup --backup-dir="${BACKUP_DIR}" /mnt/usr/share/factory/etc/ /mnt/etc/
+                rm -rf /mnt/usr/share/factory/etc || true
+            else
+                # Fallback: copy files and move originals to backup on conflict
+                for f in $(cd /mnt/usr/share/factory/etc && find . -mindepth 1 -print); do
+                    src="/mnt/usr/share/factory/etc/${f}"
+                    dst="/mnt/etc/${f}"
+                    dstdir=$(dirname "${dst}")
+                    mkdir -p "${dstdir}"
+                    if [ -e "${dst}" ]; then
+                        mkdir -p "${BACKUP_DIR}/$(dirname "${f}")"
+                        mv "${dst}" "${BACKUP_DIR}/$(dirname "${f}")/" 2>/dev/null || true
+                    fi
+                    cp -a "${src}" "${dst}" || true
+                done
+                rm -rf /mnt/usr/share/factory/etc || true
+            fi
+        fi
+        # Ensure ownership is correct
+        chown -R root:root /mnt/etc || true
+    fi
+
     # Generate filesystem table
     genfstab -U /mnt > /mnt/etc/fstab
 
