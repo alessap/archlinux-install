@@ -209,20 +209,8 @@ systemctl enable grub-btrfsd.service
 echo "==> SDDM..."
 systemctl enable sddm
 
-echo "==> Snapper..."
-if ! snapper list-configs | grep -q root; then
-  snapper -c root create-config /
-fi
-if ! snapper list-configs | grep -q home; then
-  snapper -c home create-config /home
-fi
-
-btrfs subvolume delete /.snapshots 2>/dev/null || true
-mkdir -p /.snapshots
-btrfs subvolume create /.snapshots 2>/dev/null || true
-
-systemctl enable snapper-timeline.timer
-systemctl enable snapper-cleanup.timer
+# Snapper setup moved to firstboot script: 02_firstboot_snapper.sh
+# See 02_firstboot_snapper.sh for creating snapper configs, hooks and timers
 
 echo "==> ThinkPad power + firmware..."
 systemctl enable tlp
