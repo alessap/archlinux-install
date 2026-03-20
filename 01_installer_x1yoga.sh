@@ -80,8 +80,9 @@ wipefs -a "${ROOT_PART}" || true
 # ============================================================
 
 log "Creating LUKS2 container..."
-echo -n "${LUKS_PASSWORD}" | cryptsetup luksFormat --type luks2 "${ROOT_PART}" -
-echo -n "${LUKS_PASSWORD}" | cryptsetup open "${ROOT_PART}" "${CRYPT_NAME}" -
+# Use printf with trailing newline to reliably pass the passphrase to cryptsetup
+printf '%s\n' "${LUKS_PASSWORD}" | cryptsetup luksFormat --type luks2 "${ROOT_PART}" -
+printf '%s\n' "${LUKS_PASSWORD}" | cryptsetup open "${ROOT_PART}" "${CRYPT_NAME}" -
 
 log "Creating Btrfs filesystem..."
 mkfs.btrfs -L archroot "/dev/mapper/${CRYPT_NAME}"
