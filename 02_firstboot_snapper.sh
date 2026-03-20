@@ -1,33 +1,71 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 set -euo pipefail
 
-# First-boot snapper setup. This script should be run on the installed system
-# (e.g. on first boot as root). It requires systemd/DBus to be active.
+USER_NAME="alessap"
 
-if [ ! -S /run/dbus/system_bus_socket ]; then
-    echo "System DBus socket not available; run this script after systemd is running"
-    exit 1
+echo "==> Ensuring /.snapshots is a proper Btrfs subvolume..."
+if mountpoint -q /.snapshots; then
+    echo "Unmounting existing .snapshots mount..."
+    sudo umount /.snapshots || true
 fi
 
-if ! command -v snapper >/dev/null 2>&1; then
-    pacman -Sy --noconfirm snapper || true
+if sudo btrfs subvolume list / | grep -q "path /.snapshots"; then
+    echo "Subvolume /.snapshots already exists."
+else
+    echo "Creating /.snapshots subvolume..."
+    sudo btrfs subvolume create /.snapshots
 fi
 
-# Create root config if not present
-if ! snapper -c root list >/dev/null 2>&1; then
-    snapper -c root create-config / || true
+sudo chmod 750 /.snapshots
+
+echo "==> Creating Snapper configs if missing..."
+if ! sudo snapper list-configs | grep -q root; then
+    sudo snapper -c root create-config /
 fi
 
-# Create home config if /home exists and config not present
-if [ -d /home ] && ! snapper -c home list >/dev/null 2>&1; then
-    snapper -c home create-config /home || true
+if ! sudo snapper list-configs | grep -q home; then
+    sudo snapper -c home create-config /home
 fi
 
-# Ensure timers enabled
-systemctl enable snapper-timeline.timer || true
-systemctl enable snapper-cleanup.timer || true
+echo "==> Setting Snapper permissions..."
+sudo snapper -c root set-config ALLOW_USERS="${USER_NAME}"
+sudo snapper -c home set-config ALLOW_USERS="${USER_NAME}"
 
-echo "Snapper first-boot configuration finished."
+echo "==> Fixing ACLs for user access..."
+sudo setfacl -m u:${USER_NAME}:rwx /.snapshots
 
-exit 0
+echo "==> Enabling Snapper timers..."
+sudo systemctl enable --now snapper-timeline.timer
+sudo systemctl enable --now snapper-cleanup.timer
+
+echo "==> Ensuring grub-btrfs is active..."
+sudo systemctl enable --now grub-btrfsd.service
+
+echo "==> Ensuring pacman hooks exist..."
+if [ ! -f /etc/pacman.d/hooks/snap-pac.conf ]; then
+    echo "Installing snap-pac pacman hook..."
+    sudo mkdir -p /etc/pacman.d/hooks
+    sudo tee /etc/pacman.d/hooks/snap-pac.conf >/dev/null <<EOF
+[Trigger]
+Operation = Upgrade
+Operation = Install
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = Creating pre/post snapshots for pacman transactions...
+When = PreTransaction
+Exec = /usr/bin/snap-pac pre
+When = PostTransaction
+Exec = /usr/bin/snap-pac post
+EOF
+fi
+
+echo "==> Regenerating GRUB config..."
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+
+echo "==> Creating a test snapshot..."
+sudo snapper -c root create --description "initial-test-snapshot"
+
+echo "==> Done. Snapper is fully configured."

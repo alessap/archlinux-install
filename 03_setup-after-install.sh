@@ -1,101 +1,170 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 # tested on a ThinkPad X260
+# Safer, idempotent adaptations: preflight checks, ed25519 keys,
+# safer yay build, and clearer prompts. Intended for interactive use.
 
-set -exo pipefail
+set -euo pipefail
 
-export VISUAL=vim
-export EDITOR=vim
+VISUAL=${VISUAL:-vim}
+EDITOR=${EDITOR:-vim}
 
-# Install yay (AUR helper)
-if ! item="$(type -p "yay")" || [[ -z $item ]]; then
-    echo "yay is not installed"
-    sudo pacman -S --noconfirm --needed base-devel git
-    mkdir -p ~/.software
-    cd ~/.software
-    git clone https://aur.archlinux.org/yay.git
+SCRIPT_NAME=$(basename "$0")
+NONINTERACTIVE=0
+
+usage() {
+    cat <<EOF
+Usage: $SCRIPT_NAME [--non-interactive]
+
+Options:
+  --non-interactive   run without prompts (will abort if confirmation needed)
+  -h, --help          show this help
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        --non-interactive) NONINTERACTIVE=1 ;;
+        -h|--help) usage; exit 0 ;;
+        *) ;;
+    esac
+done
+
+log() { printf '%s\n' "$*" >&2; }
+
+require_cmd() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        log "Required command not found: $1";
+        exit 1;
+    fi
+}
+
+cd "$HOME"
+
+# Preflight checks
+require_cmd git
+require_cmd ssh-keygen
+require_cmd bash
+
+# pacman/makepkg may not be available in chroot-less environments;
+# check them only when we need to install system packages.
+
+install_yay() {
+    if command -v yay >/dev/null 2>&1; then
+        log "yay already installed"
+        return 0
+    fi
+
+    log "Installing yay (AUR helper)"
+    if ! command -v pacman >/dev/null 2>&1 || ! command -v makepkg >/dev/null 2>&1; then
+        log "pacman or makepkg not found — cannot build yay. Aborting."
+        return 1
+    fi
+
+    # install build deps if missing
+    sudo pacman -S --noconfirm --needed base-devel git || {
+        log "Failed to install base-devel/git"; return 1
+    }
+
+    mkdir -p "$HOME/.software/build-yay"
+    pushd "$HOME/.software/build-yay" >/dev/null
+    if [ -d yay ]; then
+        git -C yay pull --ff-only || git -C yay fetch --all
+    else
+        git clone https://aur.archlinux.org/yay.git
+    fi
     cd yay
-    makepkg -si --noconfirm
-    cd ../..
-fi
+    makepkg -si --noconfirm || { log "makepkg failed"; popd >/dev/null; return 1; }
+    popd >/dev/null
+}
 
-sudo pacman -S --noconfirm --needed wget
+# SSH key: prefer ed25519, generate only if no key exists
+generate_ssh_key() {
+    # prefer ed25519; fallback to rsa if requested
+    SSH_DIR="$HOME/.ssh"
+    mkdir -p "$SSH_DIR"
+    if ls "$SSH_DIR"/*ed25519 >/dev/null 2>&1 || ls "$SSH_DIR"/*rsa >/dev/null 2>&1; then
+        log "SSH key already exists; skipping generation"
+        return 0
+    fi
 
-# Download and validate package lists
-wget -q -O pacman-list.pkg https://gist.githubusercontent.com/alessap/3120fb734b7257d6656da33820630612/raw/0dc9d1d84d56b595c0da572ee6a60c244213f237/pacman-list.pkg
-if ! grep -qE '^[a-zA-Z0-9_-]+$' pacman-list.pkg; then
-    echo "pacman-list.pkg failed validation. Aborting."
-    rm pacman-list.pkg
-    exit 1
-fi
-sudo pacman -S --noconfirm --needed - < pacman-list.pkg
-rm pacman-list.pkg
+    KEY_TYPE="ed25519"
+    KEY_FILE="$SSH_DIR/id_${KEY_TYPE}"
+    if [ "$NONINTERACTIVE" -eq 1 ]; then
+        ssh-keygen -t "$KEY_TYPE" -f "$KEY_FILE" -N "" -q || return 1
+    else
+        ssh-keygen -t "$KEY_TYPE" -f "$KEY_FILE" -N ""
+        log "Public key:"; cat "${KEY_FILE}.pub"
+        read -r -p "Add SSH key on your github page and press Y to continue: " response
+        case "$response" in
+            [Yy]*) log "Continuing..." ;;
+            *) log "Please add the key and re-run the script."; exit 1 ;;
+        esac
+    fi
+}
 
-wget -q -O aur-list.pkg https://gist.githubusercontent.com/alessap/2e0a6863da0a9cc8195f5f50369a5852/raw/f0779a8dc2ac860aaa2dd513a9293846752cbfcd/aur-list.pkg
-if ! grep -qE '^[a-zA-Z0-9_-]+$' aur-list.pkg; then
-    echo "aur-list.pkg failed validation. Aborting."
-    rm aur-list.pkg
-    exit 1
-fi
-sed '/pug/d' aur-list.pkg > aur-list-no-pug.pkg
-xargs -a aur-list-no-pug.pkg yay -S --noconfirm --needed --removemake
-rm aur-list*pkg
+install_or_update_dotfiles() {
+    DOTFILES_DIR="$HOME/dotfiles"
+    if [ -d "$DOTFILES_DIR/.git" ]; then
+        log "Dotfiles repo exists — pulling latest"
+        git -C "$DOTFILES_DIR" pull --ff-only || log "Failed to pull dotfiles (manual intervention may be required)"
+    else
+        git clone git@github.com:alessap/dotfiles.git "$DOTFILES_DIR" || { log "Failed to clone dotfiles"; return 1; }
+    fi
 
-cd
-[[ ! -e ~/.ssh/id_rsa ]] && ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ""
-cat ~/.ssh/id_rsa.pub
-read -p "Add SSH key on your github page and press [Yy] to continue: " -n 1 -r
+    if [ -x "$DOTFILES_DIR/create_links.sh" ]; then
+        bash "$DOTFILES_DIR/create_links.sh"
+    else
+        log "create_links.sh not found or not executable in dotfiles"
+    fi
+}
 
-if [ ! -e dotfiles ]; then
-git clone git@github.com:alessap/dotfiles.git
-cd dotfiles
-bash create_links.sh
-cd ..
-fi
+install_powerline_shell() {
+    PL_DIR="$HOME/.software/powerline-shell"
+    if [ -d "$PL_DIR" ]; then
+        log "powerline-shell already present"
+        return 0
+    fi
 
-# Install powerline-shell
-if [ ! -e  ~/.software/powerline-shell ];  then
-    mkdir -p ~/.software
-    cd ~/.software
-    git clone https://github.com/b-ryan/powerline-shell
-    cd powerline-shell
-    pip install --user .
-    cd ../..
-fi
+    mkdir -p "$HOME/.software"
+    git clone https://github.com/b-ryan/powerline-shell "$PL_DIR" --depth=1 || { log "Failed to clone powerline-shell"; return 1; }
 
-# Install powerline fonts
-if [ ! -e  ~/.software/fonts ];  then
-mkdir -p ~/.software
-cd ~/.software
-# clone
-git clone https://github.com/powerline/fonts.git --depth=1
-# install
-cd fonts
-./install.sh
-# clean-up a bit
-cd ../..
-fi
+    if command -v pipx >/dev/null 2>&1; then
+        pipx install --spec "$PL_DIR" "$PL_DIR" || pip install --user "$PL_DIR"
+    elif command -v pip >/dev/null 2>&1; then
+        pip install --user "$PL_DIR" || { log "pip install failed"; return 1; }
+    else
+        log "pip/pipx not found; skipping powerline-shell install"
+    fi
+}
 
-# Install fingerprint reader 
-sudo pacman -S --noconfirm --needed fprintd imagemagick
+install_powerline_fonts() {
+    FONTS_DIR="$HOME/.software/fonts"
+    if fc-list | grep -i powerline >/dev/null 2>&1; then
+        log "Powerline fonts already installed"
+        return 0
+    fi
 
-# Cheese not working on gnome - camera
-if [ -z "$USER" ]; then
-    read -p "Enter your username for video group and other user-specific steps: " USER
-fi
-sudo usermod -a -G video "$USER"
-read -p "Disable PipeWire system-wide? This may break modern audio setups. [y/N]: " disable_pw
-if [[ "$disable_pw" =~ ^[Yy]$ ]]; then
-    sudo systemctl --global disable pipewire.socket
-    echo "PipeWire disabled. You may need to reboot."
-else
-    echo "PipeWire not disabled. If you have audio issues, revisit this step."
-fi
-# and reboot
+    mkdir -p "$HOME/.software"
+    if [ -d "$FONTS_DIR" ]; then
+        log "Fonts repo already cloned"
+    else
+        git clone https://github.com/powerline/fonts.git --depth=1 "$FONTS_DIR" || { log "Failed to clone fonts"; return 1; }
+    fi
+    if [ -x "$FONTS_DIR/install.sh" ]; then
+        bash "$FONTS_DIR/install.sh" || { log "Font install failed"; return 1; }
+        fc-cache -f >/dev/null || true
+    else
+        log "Fonts install script missing or not executable"
+    fi
+}
 
-# set grub timeout
-GRUB_TIMEOUT="0"  # set to 0 to skip grub menu in case there is no dual boot
-sudo sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/g" /etc/default/grub
-sudo grub-mkconfig -o /boot/grub/grub.cfg
+# Main flow
+install_yay
+generate_ssh_key
+install_or_update_dotfiles
+install_powerline_shell
+install_powerline_fonts
 
-# pacaur -S pug
+log "Setup script completed"
+
+
