@@ -9,9 +9,17 @@ if mountpoint -q /.snapshots; then
     sudo umount /.snapshots || true
 fi
 
-if sudo btrfs subvolume list / | grep -q "path /.snapshots"; then
+# Prefer checking with `btrfs subvolume show` which succeeds only for subvolumes.
+if sudo btrfs subvolume show /.snapshots >/dev/null 2>&1; then
     echo "Subvolume /.snapshots already exists."
 else
+    if [ -e /.snapshots ]; then
+        # Backup any existing non-subvolume path to avoid 'File exists' errors
+        TS=$(date +%s)
+        BACKUP="/.snapshots.bak.$TS"
+        echo "Found existing path /.snapshots that is not a btrfs subvolume. Moving to $BACKUP"
+        sudo mv /.snapshots "$BACKUP" || { echo "Failed to move existing /.snapshots. Aborting."; exit 1; }
+    fi
     echo "Creating /.snapshots subvolume..."
     sudo btrfs subvolume create /.snapshots
 fi
