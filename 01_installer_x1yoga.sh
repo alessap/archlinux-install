@@ -72,6 +72,10 @@ sgdisk -n2:0:0     -t2:8300 -c2:"LUKS_BTRFS" "${DISK}"
 partprobe "${DISK}"
 
 # ============================================================
+# Ensure any leftover signatures on the root partition are removed
+# (prevents cryptsetup warning about existing LUKS superblock)
+wipefs -a "${ROOT_PART}" || true
+# ============================================================
 # LUKS + BTRFS
 # ============================================================
 
@@ -107,16 +111,32 @@ log "Formatting EFI partition..."
 mkfs.fat -F32 "${EFI_PART}"
 mount "${EFI_PART}" "${MNT}/boot"
 
+# Ensure vconsole.conf exists in the target root so mkinitcpio hooks
+# (sd-vconsole) run during pacstrap without error.
+mkdir -p "${MNT}/etc"
+cat > "${MNT}/etc/vconsole.conf" <<VCON
+KEYMAP=${KEYMAP}
+FONT=lat9w-16
+VCON
+
+# Detect CPU vendor and pick appropriate microcode package (avoid installing both)
+MICROCODE=""
+if grep -qi 'vendor_id.*GenuineIntel' /proc/cpuinfo 2>/dev/null; then
+  MICROCODE="intel-ucode"
+elif grep -qi 'vendor_id.*AuthenticAMD' /proc/cpuinfo 2>/dev/null; then
+  MICROCODE="amd-ucode"
+fi
+
 # ============================================================
 # BASE SYSTEM
 # ============================================================
 
 log "Installing base system..."
-pacstrap -K "${MNT}" \
+pacstrap -K "${MNT}" --noconfirm --needed \
   base base-devel linux linux-firmware \
   btrfs-progs grub efibootmgr \
   networkmanager sudo vim nano \
-  intel-ucode amd-ucode \
+  ${MICROCODE} \
   snapper snap-pac \
   grub-btrfs inotify-tools \
   tlp tlp-rdw acpi_call fwupd sof-firmware \
@@ -130,6 +150,9 @@ pacstrap -K "${MNT}" \
 log "Generating fstab..."
 > "${MNT}/etc/fstab"
 genfstab -U "${MNT}" >> "${MNT}/etc/fstab"
+
+# Capture root partition UUID on the host and export for use inside chroot
+ROOT_UUID=$(blkid -s UUID -o value "${ROOT_PART}") || true
 
 # ============================================================
 # CHROOT CONFIG
@@ -195,8 +218,7 @@ sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 sed -i 's/^DownloadUser/#DownloadUser/' /etc/pacman.conf
 
 echo "==> GRUB with Btrfs snapshots..."
-UUID=\$(blkid -s UUID -o value "${ROOT_PART}")
-sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=\${UUID}:${CRYPT_NAME} root=/dev/mapper/${CRYPT_NAME} rootflags=subvol=@\"|" /etc/default/grub
+sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=${ROOT_UUID}:${CRYPT_NAME} root=/dev/mapper/${CRYPT_NAME} rootflags=subvol=@\"|" /etc/default/grub
 grep -q '^GRUB_ENABLE_CRYPTODISK' /etc/default/grub || echo 'GRUB_ENABLE_CRYPTODISK=y' >> /etc/default/grub
 grep -q '^GRUB_BTRFS_ENABLE' /etc/default/grub || echo 'GRUB_BTRFS_ENABLE=y' >> /etc/default/grub
 
