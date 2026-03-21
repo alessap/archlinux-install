@@ -7,6 +7,7 @@ echo "==> Ensuring /.snapshots is a proper Btrfs subvolume..."
 if mountpoint -q /.snapshots; then
     echo "Unmounting existing .snapshots mount..."
     sudo umount /.snapshots || true
+    sudo rm -rf /.snapshots || true
 fi
 
 # Prefer checking with `btrfs subvolume show` which succeeds only for subvolumes.
